@@ -26,7 +26,7 @@ export default function ChatLayout() {
       >
         <Sidebar activeId={conversationId} onNavigate={() => setMobileOpen(false)} />
       </Drawer>
-      <Box component="main" sx={{ flex: 1, minWidth: 0 }}>
+      <Box component="main" sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100vh" }}>
         {!isDesktop && (
           <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
             <Toolbar>

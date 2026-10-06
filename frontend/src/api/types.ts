@@ -28,3 +28,24 @@ export interface ConversationPage {
   items: Conversation[];
   next_cursor: string | null;
 }
+
+export interface TextPart {
+  type: "text";
+  text: string;
+}
+
+/** Parts are a tagged union: tables, charts, images and action buttons are added here later. */
+export type MessagePart = TextPart;
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant" | "system";
+  parts: MessagePart[];
+  status: "streaming" | "complete" | "interrupted" | "error";
+  created_at: string;
+}
+
+export interface MessageList {
+  items: Message[];
+}
