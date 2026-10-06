@@ -91,3 +91,30 @@ def register_error_handlers(app: FastAPI) -> None:
     async def _unexpected(request: Request, exc: Exception):
         # Never leak internals to the client; the request id lets us find the traceback in the logs.
         return JSONResponse(_body(request, "internal_error", "Something went wrong"), status_code=500)
+
+
+class NoStoreMiddleware:
+    """Mark every /api response Cache-Control: no-store so browsers and proxies never keep per-user data.
+
+    Pure ASGI (not BaseHTTPMiddleware) so streaming/SSE responses are not buffered. A route that sets its
+    own Cache-Control (the SSE stream) keeps it.
+    """
+
+    def __init__(self, app, prefix: str = "/api/"):
+        self.app = app
+        self.prefix = prefix
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope["path"].startswith(self.prefix):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_no_store(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                if not any(name.lower() == b"cache-control" for name, _ in headers):
+                    headers.append((b"cache-control", b"no-store"))
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_no_store)
