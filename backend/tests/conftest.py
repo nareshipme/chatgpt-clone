@@ -62,8 +62,11 @@ def register_user(client):
     Reuse this in every slice that needs to prove one user cannot touch another user's data.
     """
 
-    async def _make(email: str, password: str = "a-long-enough-pw", display_name: str = "Test User"):
-        await client.post("/api/v1/auth/register", json={"email": email, "password": password, "display_name": display_name})
+    async def _make(email: str, password: str = "a-long-enough-pw", display_name: str = "Test User", tenant_id: str = "northwind"):
+        await client.post(
+            "/api/v1/auth/register",
+            json={"email": email, "password": password, "display_name": display_name, "tenant_id": tenant_id},
+        )
         login = (await client.post("/api/v1/auth/login", json={"email": email, "password": password})).json()
         client.cookies.clear()  # keep the jar clean so tests control cookies explicitly
         return {"user": login["user"], "headers": {"Authorization": f"Bearer {login['access_token']}"}}

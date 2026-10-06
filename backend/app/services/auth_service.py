@@ -1,14 +1,18 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.errors import ConflictError, UnauthorizedError
-from app.models import User
+from app.errors import ConflictError, UnauthorizedError, UnprocessableError
+from app.models import Tenant, User
 from app.repositories import users
 from app.security import hash_password, password_needs_rehash, verify_password
 
 
 class EmailTakenError(ConflictError):
     code, default_message = "email_taken", "An account with this email already exists"
+
+
+class UnknownTenantError(UnprocessableError):
+    code, default_message = "unknown_tenant", "Choose one of the listed demo companies"
 
 
 class InvalidCredentialsError(UnauthorizedError):
@@ -30,11 +34,17 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-async def register(session: AsyncSession, *, email: str, password: str, display_name: str) -> User:
+async def register(
+    session: AsyncSession, *, email: str, password: str, display_name: str, tenant_id: str = "northwind"
+) -> User:
     email = normalize_email(email)
+    if await session.get(Tenant, tenant_id) is None:
+        raise UnknownTenantError()
     if await users.get_by_email(session, email):
         raise EmailTakenError()
-    user = await users.add(session, email=email, password_hash=hash_password(password), display_name=display_name)
+    user = await users.add(
+        session, email=email, password_hash=hash_password(password), display_name=display_name, tenant_id=tenant_id
+    )
     try:
         await session.commit()
     except IntegrityError:
