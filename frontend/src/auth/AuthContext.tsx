@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, refreshSession, setAccessToken, setSessionExpiredHandler } from "../api/client";
 import type { AuthResponse, User } from "../api/types";
@@ -17,12 +18,17 @@ const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status>("loading");
+  const queryClient = useQueryClient();
 
+  // Whenever the signed-in identity changes (sign out, expiry, sign in), drop every cached server response.
+  // Otherwise the next user in the same tab would briefly see the previous user's data.
   const clear = useCallback(() => {
+    void queryClient.cancelQueries();
+    queryClient.clear();
     setAccessToken(null);
     setUser(null);
     setStatus("anonymous");
-  }, []);
+  }, [queryClient]);
 
   // On page load, silently restore the session from the refresh cookie (the access token is memory-only).
   useEffect(() => {
@@ -48,10 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await api<AuthResponse>("/auth/login", { method: "POST", body: { email, password }, auth: false });
+    queryClient.clear(); // a fresh session starts with an empty cache
     setAccessToken(data.access_token);
     setUser(data.user);
     setStatus("authenticated");
-  }, []);
+  }, [queryClient]);
 
   const register = useCallback(
     async (email: string, password: string, displayName: string) => {
