@@ -44,6 +44,9 @@ export function useChat(conversationId: string) {
   });
 
   const [live, setLive] = useState<LiveTurn | null>(null);
+  // How many saved messages existed when the live turn began. The final refetch lands a moment before the live turn
+  // is cleared; hiding anything newer than this keeps the reply from showing twice during that moment.
+  const [baseCount, setBaseCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const streaming = live !== null;
@@ -69,6 +72,7 @@ export function useChat(conversationId: string) {
       const controller = new AbortController();
       abortRef.current = controller;
       setError(null);
+      setBaseCount(qc.getQueryData<{ items: unknown[] }>(conversationKeys.messages(userId, conversationId))?.items.length ?? 0);
       setLive({ userText: text, parts: [] });
       let stoppedByUser = false;
       try {
@@ -107,13 +111,13 @@ export function useChat(conversationId: string) {
         setLive(null);
       }
     },
-    [conversationId, refresh, streaming],
+    [conversationId, refresh, streaming, qc, userId],
   );
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
   return {
-    messages: history.data?.items ?? [],
+    messages: live ? (history.data?.items ?? []).slice(0, baseCount) : (history.data?.items ?? []),
     isLoading: history.isPending,
     loadError: history.error,
     live,
