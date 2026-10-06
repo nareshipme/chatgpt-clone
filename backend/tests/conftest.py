@@ -51,3 +51,19 @@ async def client(migrated_db, monkeypatch):
         yield c
     app.dependency_overrides.clear()
     await engine.dispose()
+
+
+@pytest.fixture
+def register_user(client):
+    """Factory: create a user and return {"user": ..., "headers": {"Authorization": "Bearer ..."}}.
+
+    Reuse this in every slice that needs to prove one user cannot touch another user's data.
+    """
+
+    async def _make(email: str, password: str = "a-long-enough-pw", display_name: str = "Test User"):
+        await client.post("/api/v1/auth/register", json={"email": email, "password": password, "display_name": display_name})
+        login = (await client.post("/api/v1/auth/login", json={"email": email, "password": password})).json()
+        client.cookies.clear()  # keep the jar clean so tests control cookies explicitly
+        return {"user": login["user"], "headers": {"Authorization": f"Bearer {login['access_token']}"}}
+
+    return _make
