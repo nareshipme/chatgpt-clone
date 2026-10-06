@@ -100,12 +100,14 @@ async def test_the_model_is_given_only_its_companys_tools_and_a_company_specific
 async def test_the_loop_is_bounded_and_the_last_round_withholds_tools(client, register_user, monkeypatch):
     monkeypatch.setattr(settings, "llm_max_tool_rounds", 2)
     offered = []
+    last_messages = []
 
     class Greedy:
         name = "greedy"
 
         async def stream(self, messages, *, tools=None, **kw):
             offered.append(bool(tools))
+            last_messages[:] = messages
             if tools:
                 yield ToolCall(f"c{len(offered)}", "get_lane_cost_carbon", '{"lane": "Chicago-Dallas"}')
             else:
@@ -115,6 +117,7 @@ async def test_the_loop_is_bounded_and_the_last_round_withholds_tools(client, re
     app.dependency_overrides[get_llm_provider] = lambda: Greedy()
     a, c, frames = await _ask(client, register_user, "keep going")
     assert offered == [True, True, False]  # two tool rounds, then a forced answer
+    assert last_messages[-1].role == "user" and "Do not call any more tools" in last_messages[-1].content  # told to answer now
     assert frames[-1][0] == "done" and frames[-1][1]["tokens_in"] == 15 and frames[-1][1]["tokens_out"] == 21  # summed over rounds
     saved = (await _thread(client, a["headers"], c["id"]))[1]
     assert saved["parts"][-1] == {"type": "text", "text": "Final answer from what I have."}

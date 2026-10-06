@@ -69,7 +69,8 @@ class OpenAICompatProvider:
         produced_text = False
         pending: dict[int, dict] = {}  # tool calls arrive in fragments: name once, arguments in pieces
         # Some models write tool calls as text; catch that so it neither shows up in the chat nor goes unrun.
-        markup = ToolMarkupFilter() if tools else None
+        # The filter always runs so markup never reaches the chat; its calls are only honoured if tools were offered.
+        markup = ToolMarkupFilter()
         try:
             async for chunk in response:
                 usage = getattr(chunk, "usage", None)
@@ -85,21 +86,20 @@ class OpenAICompatProvider:
                         slot["name"] += frag.function.name or ""
                         slot["arguments"] += frag.function.arguments or ""
                 text = delta.content
-                if text and markup is not None:
+                if text:
                     text = markup.feed(text)
                 if text:
                     produced_text = True
                     yield TextDelta(text)
-            if markup is not None:
-                tail = markup.flush()
-                if tail:
-                    produced_text = True
-                    yield TextDelta(tail)
+            tail = markup.flush()
+            if tail:
+                produced_text = True
+                yield TextDelta(tail)
             for index in sorted(pending):
                 call = pending[index]
                 if call["name"]:
                     yield ToolCall(call["id"] or f"call-{index}", call["name"], call["arguments"])
-            text_calls = markup.calls if markup is not None else []
+            text_calls = markup.calls if tools else []
             for call in text_calls:
                 yield call
             if not produced_text and not text_calls and not any(c["name"] for c in pending.values()):
