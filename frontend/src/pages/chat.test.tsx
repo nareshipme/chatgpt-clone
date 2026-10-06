@@ -55,7 +55,7 @@ function setup(opts: { history?: Message[]; onSend?: (init?: RequestInit) => Res
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { mock, setThread: (m: Message[]) => (thread = m) };
+  return { mock, setThread: (m: Message[]) => (thread = m), refetchAll: () => client.invalidateQueries() };
 }
 
 beforeEach(() => {
@@ -301,5 +301,27 @@ describe("rich chat", () => {
     sse.close();
     await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument());
     expect(screen.getAllByRole("table", { name: "Demo" })).toHaveLength(1); // no duplicate after the saved copy replaces the live one
+  });
+});
+
+describe("hand-over from live reply to saved reply", () => {
+  it("never shows the reply twice while the saved copy arrives", async () => {
+    let sse!: ReturnType<typeof sseResponse>;
+    const { mock, setThread, refetchAll } = setup({ onSend: (init) => (sse = sseResponse(init)).response });
+    await userEvent.type(await box(), "hello");
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+    sse.push("token", { text: "Reply text" });
+    await screen.findByText(/Reply text/);
+    // the server copy exists (a refetch could land now) but the stream has not finished
+    setThread([rich("m1", "user", [{ type: "text", text: "hello" }]), rich("m2", "assistant", [{ type: "text", text: "Reply text" }])]);
+    const before = calls(mock, "GET /conversations/c1/messages").length;
+    await refetchAll();
+    await waitFor(() => expect(calls(mock, "GET /conversations/c1/messages").length).toBeGreaterThan(before));
+    await new Promise((r) => setTimeout(r, 100)); // let React render the refetched list
+    expect(document.querySelectorAll('[data-role="assistant"]')).toHaveLength(1);
+    sse.push("done", {});
+    sse.close();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument());
+    expect(document.querySelectorAll('[data-role="assistant"]')).toHaveLength(1);
   });
 });
