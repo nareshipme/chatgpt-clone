@@ -64,10 +64,14 @@ class RequestIdMiddleware:
         await self.app(scope, receive, send_with_id)
 
 
+def error_response(request: Request, exc: AppError) -> JSONResponse:
+    return JSONResponse(_body(request, exc.code, exc.message, exc.details), status_code=exc.status_code)
+
+
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(request: Request, exc: AppError):
-        return JSONResponse(_body(request, exc.code, exc.message, exc.details), status_code=exc.status_code)
+        return error_response(request, exc)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError):

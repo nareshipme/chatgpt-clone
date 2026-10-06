@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 15
     refresh_token_days: int = 7
+    # True in production (HTTPS only). False locally so the cookie works over http://localhost.
+    cookie_secure: bool = False
 
     @property
     def async_database_url(self) -> str | None:
