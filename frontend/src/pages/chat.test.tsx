@@ -188,6 +188,23 @@ describe("chat", () => {
     expect(screen.getByText("Partial answer")).toBeInTheDocument();
   });
 
+  it("Retry on the error banner asks the same question again", async () => {
+    let sse!: ReturnType<typeof sseResponse>;
+    let attempt = 0;
+    const { mock, setThread } = setup({
+      history: [msg("m1", "user", "hello"), msg("m2", "assistant", "", "error")],
+      onSend: (init) => (++attempt === 1 ? jsonResponse(503, errorBody("llm_rate_limited", "The assistant is busy right now. Please try again in a moment.")) : (sse = sseResponse(init)).response),
+    });
+    await userEvent.type(await box(), "hello");
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByText(/busy right now/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(calls(mock, "POST /conversations/c1/messages")).toHaveLength(2));
+    expect(JSON.parse(calls(mock, "POST /conversations/c1/messages")[1][1]!.body as string)).toEqual({ content: "hello" });
+    expect(screen.queryByText(/busy right now/)).not.toBeInTheDocument(); // the old error is cleared
+    sse.close();
+  });
+
   it("explains a refusal that happens before streaming starts (409) and stays usable", async () => {
     setup({ onSend: () => jsonResponse(409, errorBody("stream_in_progress", "A reply is already being generated for this conversation.")) });
     await userEvent.type(await box(), "too soon");

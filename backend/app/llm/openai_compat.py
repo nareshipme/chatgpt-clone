@@ -24,7 +24,7 @@ class OpenAICompatProvider:
         base_url: str,
         model: str,
         timeout_s: float = 60.0,
-        max_retries: int = 2,
+        max_retries: int = 5,
         client: AsyncOpenAI | None = None,
     ):
         self.model = model

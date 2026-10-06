@@ -46,6 +46,8 @@ function ChatPane({ conversationId }: { conversationId: string }) {
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [chat.messages.length, chat.live?.parts, chat.live?.userText]);
 
+  const lastQuestion = [...chat.messages].reverse().find((m) => m.role === "user");
+  const lastQuestionText = lastQuestion ? textOf(lastQuestion.parts) : "";
   const empty = !chat.isLoading && chat.messages.length === 0 && !chat.live;
 
   return (
@@ -91,7 +93,18 @@ function ChatPane({ conversationId }: { conversationId: string }) {
         </Box>
       )}
       {chat.error && (
-        <Alert severity="error" onClose={chat.dismissError} sx={{ mx: 2, mb: 1 }}>
+        <Alert
+          severity="error"
+          onClose={chat.dismissError}
+          sx={{ mx: 2, mb: 1 }}
+          action={
+            lastQuestionText && !chat.streaming ? (
+              <Button color="inherit" size="small" onClick={() => void chat.send(lastQuestionText)}>
+                Retry
+              </Button>
+            ) : undefined
+          }
+        >
           {chat.error}
         </Alert>
       )}
