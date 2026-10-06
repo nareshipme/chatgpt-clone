@@ -8,6 +8,8 @@ type Status = "loading" | "authenticated" | "anonymous";
 interface AuthValue {
   user: User | null;
   status: Status;
+  /** True after the user chose to sign out (not after a session expiry). Used to forget the return-to page. */
+  signedOut: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -18,6 +20,7 @@ const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status>("loading");
+  const [signedOut, setSignedOut] = useState(false);
   const queryClient = useQueryClient();
 
   // Whenever the signed-in identity changes (sign out, expiry, sign in), drop every cached server response.
@@ -55,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const data = await api<AuthResponse>("/auth/login", { method: "POST", body: { email, password }, auth: false });
     queryClient.clear(); // a fresh session starts with an empty cache
+    setSignedOut(false);
     setAccessToken(data.access_token);
     setUser(data.user);
     setStatus("authenticated");
@@ -76,11 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api("/auth/logout", { method: "POST", auth: false });
     } finally {
+      setSignedOut(true);
       clear();
     }
   }, [clear]);
 
-  const value = useMemo(() => ({ user, status, login, register, logout }), [user, status, login, register, logout]);
+  const value = useMemo(
+    () => ({ user, status, signedOut, login, register, logout }),
+    [user, status, signedOut, login, register, logout],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
