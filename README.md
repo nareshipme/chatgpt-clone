@@ -2,6 +2,8 @@
 
 Full stack ChatGPT-style app (FastAPI + React). Status: **deployment skeleton** (health check, SSE smoke test, Nginx proxy, Dockerfiles). Features are added per `docs/PLAN.md`.
 
+**Live skeleton:** https://web-production-cb37f.up.railway.app (auto-deployed from `main` on Railway)
+
 ## Run locally (Docker)
 ```
 docker compose up --build
