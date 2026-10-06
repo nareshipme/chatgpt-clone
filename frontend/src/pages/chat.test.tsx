@@ -120,6 +120,19 @@ describe("chat", () => {
     expect(calls(mock, "GET /conversations?limit=20").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("refreshes the sidebar as soon as the reply starts, not only when it ends", async () => {
+    let sse!: ReturnType<typeof sseResponse>;
+    const { mock } = setup({ onSend: (init) => (sse = sseResponse(init)).response });
+    await screen.findByLabelText("Message");
+    const before = calls(mock, "GET /conversations?limit=20").length;
+    await userEvent.type(screen.getByLabelText("Message"), "hello");
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByRole("button", { name: "Stop generating" });
+    sse.push("start", { assistant_message_id: "m2" });
+    await waitFor(() => expect(calls(mock, "GET /conversations?limit=20").length).toBeGreaterThan(before));
+    sse.close();
+  });
+
   it("sends on Enter but not on Shift+Enter", async () => {
     let sse!: ReturnType<typeof sseResponse>;
     const { mock } = setup({ onSend: (init) => (sse = sseResponse(init)).response });
