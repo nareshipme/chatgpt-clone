@@ -14,6 +14,7 @@ class MessageOut(BaseModel):
     # Typed parts, e.g. [{"type": "text", "text": "..."}]. Other part types arrive in later slices.
     parts: list[dict[str, Any]]
     status: str
+    meta: dict[str, Any] | None = None
     created_at: datetime
 
 

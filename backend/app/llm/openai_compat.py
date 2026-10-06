@@ -9,9 +9,21 @@ from collections.abc import AsyncIterator
 import openai
 from openai import AsyncOpenAI
 
-from app.llm.base import ChatMessage, LLMError, LLMEvent, TextDelta, Usage
+from app.llm.base import ChatMessage, LLMError, LLMEvent, TextDelta, ToolCall, Usage
 
 log = logging.getLogger("app.llm.openai_compat")
+
+
+def _payload(m: ChatMessage) -> dict:
+    if m.role == "tool":
+        return {"role": "tool", "tool_call_id": m.tool_call_id, "content": m.content}
+    if m.tool_calls:
+        return {
+            "role": "assistant",
+            "content": m.content or None,
+            "tool_calls": [{"id": c.id, "type": "function", "function": {"name": c.name, "arguments": c.arguments}} for c in m.tool_calls],
+        }
+    return {"role": m.role, "content": m.content}
 
 
 class OpenAICompatProvider:
@@ -39,13 +51,14 @@ class OpenAICompatProvider:
         *,
         system: str | None = None,
         temperature: float | None = None,
+        tools: list[dict] | None = None,
     ) -> AsyncIterator[LLMEvent]:
-        payload = ([{"role": "system", "content": system}] if system else []) + [
-            {"role": m.role, "content": m.content} for m in messages
-        ]
+        payload = ([{"role": "system", "content": system}] if system else []) + [_payload(m) for m in messages]
         kwargs: dict = {"model": self.model, "messages": payload, "stream": True}
         if temperature is not None:
             kwargs["temperature"] = temperature
+        if tools:
+            kwargs["tools"] = tools
 
         try:
             response = await self._client.chat.completions.create(**kwargs)
@@ -53,6 +66,7 @@ class OpenAICompatProvider:
             raise self._translate(exc) from None
 
         produced_text = False
+        pending: dict[int, dict] = {}  # tool calls arrive in fragments: name once, arguments in pieces
         try:
             async for chunk in response:
                 usage = getattr(chunk, "usage", None)
@@ -60,11 +74,22 @@ class OpenAICompatProvider:
                     yield Usage(tokens_in=usage.prompt_tokens or 0, tokens_out=usage.completion_tokens or 0)
                 if not chunk.choices:
                     continue
-                text = chunk.choices[0].delta.content
+                delta = chunk.choices[0].delta
+                for frag in getattr(delta, "tool_calls", None) or []:
+                    slot = pending.setdefault(frag.index, {"id": "", "name": "", "arguments": ""})
+                    slot["id"] = frag.id or slot["id"]
+                    if frag.function is not None:
+                        slot["name"] += frag.function.name or ""
+                        slot["arguments"] += frag.function.arguments or ""
+                text = delta.content
                 if text:
                     produced_text = True
                     yield TextDelta(text)
-            if not produced_text:
+            for index in sorted(pending):
+                call = pending[index]
+                if call["name"]:
+                    yield ToolCall(call["id"] or f"call-{index}", call["name"], call["arguments"])
+            if not produced_text and not any(c["name"] for c in pending.values()):
                 # Some models (e.g. reasoning ones) return only hidden reasoning. A blank reply is a failure.
                 log.warning("empty completion model=%s", self.model)
                 raise LLMError("llm_empty", "The assistant returned an empty answer. Please try again.")
