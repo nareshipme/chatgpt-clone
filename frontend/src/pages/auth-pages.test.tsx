@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthContext";
 import { PublicOnly, RequireAuth } from "../auth/RequireAuth";
 import { errorBody, jsonResponse, stubFetch } from "../test/helpers";
-import HomePage from "./HomePage";
+import { EmptyChatPage } from "./ConversationPages";
 import LoginPage from "./LoginPage";
 import RegisterPage from "./RegisterPage";
 
@@ -20,7 +20,7 @@ function renderApp(initial: string) {
         <Routes>
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} />
-          <Route path="/" element={<RequireAuth><HomePage /></RequireAuth>} />
+          <Route path="/" element={<RequireAuth><EmptyChatPage /></RequireAuth>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>,
