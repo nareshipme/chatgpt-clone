@@ -711,3 +711,9 @@ Use Railway's variable references between services where possible (check the exa
 - `api` listens on the injected `PORT` (8080); `web` uses `API_UPSTREAM=http://${{api.RAILWAY_PRIVATE_DOMAIN}}:8080`.
 - Local uploads via `railway up ./backend --path-as-root --service api` and `railway up ./frontend --path-as-root --service web`. Switch to GitHub autodeploy later with `railway service source connect --repo owner/repo --branch main --service api` (and `web`).
 - Not yet done: migrations pre-deploy command, real secrets (`JWT_SECRET`, `POE_API_KEY`), cost caps.
+
+### 14.9 Autodeploy via GitHub Actions (verified 2026-10-06)
+- Railway's own GitHub-trigger did not fire for pushes, so deploys run from GitHub Actions instead: `.github/workflows/deploy-api.yml` (paths `backend/**`) and `deploy-web.yml` (paths `frontend/**`).
+- Each job installs the Railway CLI and runs `railway up --service <api|web> --ci` with the `RAILWAY_TOKEN` repo secret (a Railway **project token**, set with `gh secret set`, never committed).
+- Upload the **repo root** (not `--path-as-root`): the services have Root Directory `/backend` and `/frontend` set in Railway, which is applied to the uploaded archive.
+- Verified: a push touching `frontend/` deployed `web` and the new text appeared on the live URL; health and SSE still pass.
