@@ -2,12 +2,12 @@ import { Alert, Box, Button, Container, Skeleton, Typography } from "@mui/materi
 import { useEffect, useRef, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import type { Message } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { Composer } from "../components/Composer";
 import { MessageBubble } from "../components/MessageBubble";
 import { useChat } from "../hooks/useChat";
 import { useConversation } from "../hooks/useConversations";
+import { textOf } from "../lib/parts";
 
 /** Shown at "/" when no conversation is selected. */
 export function EmptyChatPage() {
@@ -21,8 +21,6 @@ export function EmptyChatPage() {
     </Container>
   );
 }
-
-const textOf = (m: Message) => m.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
 
 /** The thread, the live reply and the composer for one conversation. */
 function ChatPane({ conversationId }: { conversationId: string }) {
@@ -46,7 +44,7 @@ function ChatPane({ conversationId }: { conversationId: string }) {
   useEffect(() => {
     const el = scroller.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [chat.messages.length, chat.live?.assistantText, chat.live?.userText]);
+  }, [chat.messages.length, chat.live?.parts, chat.live?.userText]);
 
   const empty = !chat.isLoading && chat.messages.length === 0 && !chat.live;
 
@@ -61,13 +59,26 @@ function ChatPane({ conversationId }: { conversationId: string }) {
               Send a message to start the conversation.
             </Typography>
           )}
-          {chat.messages.map((m) => (
-            <MessageBubble key={m.id} role={m.role} text={textOf(m)} status={m.status} />
-          ))}
+          {chat.messages.map((m, i) => {
+            const next = chat.messages[i + 1];
+            const isLast = i === chat.messages.length - 1;
+            return (
+              <MessageBubble
+                key={m.id}
+                role={m.role}
+                parts={m.parts}
+                status={m.status}
+                // Choice buttons work only on the newest finished reply with nothing after it; older menus are history.
+                actionsActive={m.role === "assistant" && isLast && !chat.streaming && m.status === "complete"}
+                answeredWith={next?.role === "user" ? textOf(next.parts) : isLast ? chat.live?.userText : undefined}
+                onChoose={(value) => void chat.send(value)}
+              />
+            );
+          })}
           {chat.live && (
             <>
               <MessageBubble role="user" text={chat.live.userText} />
-              <MessageBubble role="assistant" text={chat.live.assistantText} live />
+              <MessageBubble role="assistant" parts={chat.live.parts} live />
             </>
           )}
         </Container>

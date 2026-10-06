@@ -1,34 +1,43 @@
 import CheckIcon from "@mui/icons-material/Check";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Box, IconButton, Paper, Tooltip, Typography } from "@mui/material";
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
+import type { MessagePart } from "../api/types";
 import { copyText } from "../lib/clipboard";
-
-// Markdown (react-markdown, remark, highlight.js) is the heaviest part of the app and the sign-in pages
-// never need it, so it is loaded on demand.
-const Markdown = lazy(() => import("./Markdown").then((m) => ({ default: m.Markdown })));
+import { partsToPlainText } from "../lib/parts";
+import { PartsView } from "./PartsView";
 
 interface Props {
   role: "user" | "assistant" | "system";
-  text: string;
+  /** The message content as typed parts. For plain text you may pass `text` instead. */
+  parts?: MessagePart[];
+  text?: string;
   /** Saved status of an assistant message, shown as a quiet note. */
   status?: "streaming" | "complete" | "interrupted" | "error";
-  /** True while this bubble is still receiving tokens. */
+  /** True while this bubble is still receiving content. */
   live?: boolean;
+  /** Choice buttons in this message can be clicked (only the newest reply with nothing after it). */
+  actionsActive?: boolean;
+  answeredWith?: string;
+  onChoose?: (value: string) => void;
 }
 
-export function MessageBubble({ role, text, status, live }: Props) {
+export function MessageBubble({ role, parts, text = "", status, live, actionsActive, answeredWith, onChoose }: Props) {
+  const content: MessagePart[] = parts ?? (text ? [{ type: "text", text }] : []);
   const isUser = role === "user";
-  const waiting = !isUser && !text && (live || status === "streaming");
+  const hasContent = content.some((p) => p.type !== "text" || p.text);
+  const waiting = !isUser && !hasContent && (live || status === "streaming");
   const [copied, setCopied] = useState(false);
-  const canCopy = !isUser && !!text && !live;
+  const canCopy = !isUser && hasContent && !live;
 
   async function copy() {
-    if (await copyText(text)) {
+    if (await copyText(partsToPlainText(content))) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     }
   }
+
+  const userText = content.map((p) => (p.type === "text" ? p.text : "")).join("");
 
   return (
     <Box sx={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", mb: 2 }}>
@@ -49,7 +58,7 @@ export function MessageBubble({ role, text, status, live }: Props) {
       >
         {isUser ? (
           <Typography component="div" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {text}
+            {userText}
           </Typography>
         ) : waiting ? (
           <Typography component="div">
@@ -57,9 +66,7 @@ export function MessageBubble({ role, text, status, live }: Props) {
           </Typography>
         ) : (
           <Typography component="div">
-            <Suspense fallback={<span style={{ whiteSpace: "pre-wrap" }}>{text}</span>}>
-              <Markdown>{live ? `${text} ▍` : text}</Markdown>
-            </Suspense>
+            <PartsView parts={content} live={live} actionsActive={actionsActive} answeredWith={answeredWith} onChoose={onChoose} />
           </Typography>
         )}
         {!isUser && status === "interrupted" && (

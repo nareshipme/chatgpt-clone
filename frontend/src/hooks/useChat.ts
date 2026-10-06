@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, apiStream } from "../api/client";
+import type { MessagePart } from "../api/types";
 import { listMessages } from "../api/messages";
 import { readSse } from "../api/sse";
 import { conversationKeys, useUserId } from "./useConversations";
@@ -8,7 +9,15 @@ import { conversationKeys, useUserId } from "./useConversations";
 /** The turn currently in flight: what the user just sent and the reply as it arrives. */
 export interface LiveTurn {
   userText: string;
-  assistantText: string;
+  /** The reply so far, as typed parts (text before and after a table stays in order). */
+  parts: MessagePart[];
+}
+
+/** Append streamed text to the last text part, or start a new one after a structured part. */
+function appendText(parts: MessagePart[], piece: string): MessagePart[] {
+  const last = parts[parts.length - 1];
+  if (last?.type === "text") return [...parts.slice(0, -1), { type: "text", text: last.text + piece }];
+  return [...parts, { type: "text", text: piece }];
 }
 
 const REFETCH_AFTER_STOP_MS = 500; // the server notices the disconnect a moment after we abort
@@ -60,7 +69,7 @@ export function useChat(conversationId: string) {
       const controller = new AbortController();
       abortRef.current = controller;
       setError(null);
-      setLive({ userText: text, assistantText: "" });
+      setLive({ userText: text, parts: [] });
       let stoppedByUser = false;
       try {
         const res = await apiStream(`/conversations/${conversationId}/messages`, { body: { content: text }, signal: controller.signal });
@@ -71,7 +80,11 @@ export function useChat(conversationId: string) {
             void qc.invalidateQueries({ queryKey: conversationKeys.detail(userId, conversationId) });
           } else if (frame.event === "token") {
             const { text: piece } = frame.data as TokenData;
-            setLive((l) => (l ? { ...l, assistantText: l.assistantText + piece } : l));
+            setLive((l) => (l ? { ...l, parts: appendText(l.parts, piece) } : l));
+          } else if (frame.event === "part") {
+            // A structured part (table, chart, image, actions). The server has already validated it.
+            const part = frame.data as MessagePart;
+            setLive((l) => (l ? { ...l, parts: [...l.parts, part] } : l));
           } else if (frame.event === "error") {
             setError((frame.data as ErrorData).message);
             break;

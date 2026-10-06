@@ -206,3 +206,100 @@ describe("chat", () => {
     await waitFor(() => expect(alert).not.toBeInTheDocument());
   });
 });
+
+// ------------------------------------------------------------------ rich content in the chat
+const rich = (id: string, role: Message["role"], parts: Message["parts"], status: Message["status"] = "complete"): Message => ({
+  id, conversation_id: "c1", role, status, created_at: "", parts,
+});
+const menu = {
+  type: "actions" as const,
+  prompt: "How should I answer?",
+  options: [
+    { id: "bullets", label: "Bullet points", value: "Please answer in bullet points." },
+    { id: "short", label: "One paragraph", value: "Please answer in one paragraph." },
+  ],
+};
+
+describe("rich chat", () => {
+  it("shows tables and images from saved history", async () => {
+    setup({
+      history: [
+        rich("m1", "user", [{ type: "text", text: "show data" }]),
+        rich("m2", "assistant", [
+          { type: "text", text: "Here it is" },
+          { type: "table", title: "Sales", columns: ["Region", "Q1"], rows: [["North", 120]] },
+          { type: "image", url: "https://example.com/p.png", alt: "Chart picture" },
+        ]),
+      ],
+    });
+    expect(await screen.findByRole("table", { name: "Sales" })).toBeInTheDocument();
+    expect(screen.getByText("North")).toBeInTheDocument();
+    expect(document.querySelector("img[alt='Chart picture']")).not.toBeNull();
+  });
+
+  it("clicking a choice sends that option's text as the next message", async () => {
+    let sse!: ReturnType<typeof sseResponse>;
+    const { mock } = setup({
+      history: [rich("m1", "user", [{ type: "text", text: "explain" }]), rich("m2", "assistant", [{ type: "text", text: "Sure." }, menu])],
+      onSend: (init) => (sse = sseResponse(init)).response,
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Bullet points" }));
+    await waitFor(() => expect(calls(mock, "POST /conversations/c1/messages")).toHaveLength(1));
+    expect(JSON.parse(calls(mock, "POST /conversations/c1/messages")[0][1]!.body as string)).toEqual({ content: "Please answer in bullet points." });
+    // while that reply streams, the menu cannot be used again and the chosen option is marked
+    expect(await screen.findByRole("button", { name: "Bullet points" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "One paragraph" })).toBeDisabled();
+    sse.close();
+  });
+
+  it("menus on older replies are history: disabled, with the user's earlier choice shown", async () => {
+    setup({
+      history: [
+        rich("m1", "user", [{ type: "text", text: "explain" }]),
+        rich("m2", "assistant", [{ type: "text", text: "Sure." }, menu]),
+        rich("m3", "user", [{ type: "text", text: "Please answer in one paragraph." }]),
+        rich("m4", "assistant", [{ type: "text", text: "Here is a paragraph." }]),
+      ],
+    });
+    const chosen = await screen.findByRole("button", { name: "One paragraph" });
+    expect(chosen).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Bullet points" })).toBeDisabled();
+  });
+
+  it("a menu on the newest finished reply is clickable, one on an unfinished reply is not", async () => {
+    setup({
+      history: [rich("m1", "user", [{ type: "text", text: "go" }]), rich("m2", "assistant", [{ type: "text", text: "Partial" }, menu], "interrupted")],
+    });
+    expect(await screen.findByRole("button", { name: "Bullet points" })).toBeDisabled(); // interrupted: do not offer choices
+  });
+
+  it("shows a table the moment it arrives mid-stream, between the surrounding text", async () => {
+    let sse!: ReturnType<typeof sseResponse>;
+    const { setThread } = setup({ onSend: (init) => (sse = sseResponse(init)).response });
+    await userEvent.type(await box(), "table please");
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    sse.push("token", { text: "Here is the table: " });
+    await screen.findByText(/Here is the table/);
+    sse.push("part", { type: "table", title: "Demo", columns: ["A"], rows: [["cell-1"]] });
+    expect(await screen.findByRole("table", { name: "Demo" })).toBeInTheDocument();
+    sse.push("token", { text: "That is all." });
+    expect(await screen.findByText(/That is all\./)).toBeInTheDocument();
+
+    const bubble = document.querySelector('[data-role="assistant"]')!;
+    const order = Array.from(bubble.querySelectorAll("p, table")).map((el) => el.tagName + ":" + (el.textContent ?? "").slice(0, 12));
+    expect(order[0]).toMatch(/^P:Here is the/);
+    expect(order[1]).toMatch(/^TABLE:/);
+    expect(order[2]).toMatch(/^P:That is all/);
+
+    setThread([rich("m1", "user", [{ type: "text", text: "table please" }]), rich("m2", "assistant", [
+      { type: "text", text: "Here is the table: " },
+      { type: "table", title: "Demo", columns: ["A"], rows: [["cell-1"]] },
+      { type: "text", text: "That is all." },
+    ])]);
+    sse.push("done", {});
+    sse.close();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument());
+    expect(screen.getAllByRole("table", { name: "Demo" })).toHaveLength(1); // no duplicate after the saved copy replaces the live one
+  });
+});
