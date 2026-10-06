@@ -60,7 +60,7 @@ export interface ChartPart {
   title?: string | null;
   x: string;
   series: ChartSeries[];
-  data: Record<string, string | number>[];
+  data: Record<string, string | number | null>[];
 }
 
 export interface ImagePart {

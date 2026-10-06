@@ -76,3 +76,11 @@ def test_action_option_rules():
     seven = [{"id": f"o{i}", "label": "L", "value": "v"} for i in range(7)]
     assert validate_part({**ACTIONS, "options": seven}) is None
     assert validate_part({**ACTIONS, "options": [{"id": "a", "label": "A", "value": ""}]}) is None
+
+
+def test_a_chart_series_may_have_gaps_but_the_keys_must_still_be_there():
+    chart = {"type": "chart", "kind": "line", "x": "d", "series": [{"key": "a", "label": "A"}, {"key": "b", "label": "B"}],
+             "data": [{"d": "1", "a": 1, "b": 2}, {"d": "2", "a": 3, "b": None}]}
+    assert validate_part(chart)["data"][1]["b"] is None
+    chart["data"][1].pop("b")
+    assert validate_part(chart) is None  # a missing key is still a malformed point

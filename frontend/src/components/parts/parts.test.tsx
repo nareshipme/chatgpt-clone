@@ -113,6 +113,14 @@ describe("PartsView", () => {
     await waitFor(() => expect(screen.getByText("View data")).toBeInTheDocument());
   });
 
+  it("leaves a blank cell for a gap in a series instead of printing 'null'", async () => {
+    const gap: ChartPart = { ...chart, series: [{ key: "revenue", label: "Revenue" }, { key: "actual", label: "Actual" }], data: [{ month: "Jan", revenue: 120, actual: 118 }, { month: "Feb", revenue: 150, actual: null }] };
+    render(<PartsView parts={[gap]} />);
+    const data = await screen.findByRole("table", { name: "Revenue data" }, { timeout: 5000 });
+    expect(within(data).queryByText("null")).toBeNull();
+    expect(within(data).getByText("118")).toBeInTheDocument();
+  });
+
   it("puts a cursor on the last text part while the reply is still arriving", async () => {
     render(<PartsView parts={[{ type: "text", text: "typing" }]} live />);
     expect(await screen.findByText(/typing ▍/)).toBeInTheDocument();
