@@ -65,7 +65,11 @@ export function useChat(conversationId: string) {
       try {
         const res = await apiStream(`/conversations/${conversationId}/messages`, { body: { content: text }, signal: controller.signal });
         for await (const frame of readSse(res.body!)) {
-          if (frame.event === "token") {
+          if (frame.event === "start") {
+            // The server has already saved the question and named the chat: show the new title right away.
+            void qc.invalidateQueries({ queryKey: conversationKeys.lists(userId) });
+            void qc.invalidateQueries({ queryKey: conversationKeys.detail(userId, conversationId) });
+          } else if (frame.event === "token") {
             const { text: piece } = frame.data as TokenData;
             setLive((l) => (l ? { ...l, assistantText: l.assistantText + piece } : l));
           } else if (frame.event === "error") {
