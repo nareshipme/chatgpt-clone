@@ -48,3 +48,22 @@ async def test_the_consumer_can_stop_early_and_close_cleanly():
     first = await anext(stream)
     assert isinstance(first, TextDelta)
     await stream.aclose()  # what happens when the user presses Stop; must not raise
+
+
+async def test_trigger_words_append_structured_parts_after_the_text_and_before_usage():
+    from app.llm.base import PartEvent
+    from app.schemas.parts import validate_part
+
+    events = await _collect(MockProvider(), "everything [table] [chart] [image] [choices]")
+    kinds = [type(e).__name__ for e in events]
+    assert kinds[-1] == "Usage" and kinds.count("PartEvent") == 4
+    assert kinds.index("PartEvent") > max(i for i, k in enumerate(kinds) if k == "TextDelta")
+    parts = [e.part for e in events if isinstance(e, PartEvent)]
+    assert [p["type"] for p in parts] == ["table", "chart", "image", "actions"]
+    assert all(validate_part(p) is not None for p in parts)  # the demo parts satisfy the real validation
+
+
+async def test_no_trigger_means_no_parts():
+    from app.llm.base import PartEvent
+
+    assert not any(isinstance(e, PartEvent) for e in await _collect(MockProvider(), "plain question"))

@@ -23,9 +23,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
 from app.errors import ConflictError
-from app.llm.base import ChatMessage, LLMError, LLMProvider, TextDelta, Usage
+from app.llm.base import ChatMessage, LLMError, LLMProvider, PartEvent, TextDelta, Usage
 from app.models import Conversation, Message
 from app.repositories import messages as repo
+from app.schemas.parts import validate_part
 from app.services import conversation_service
 from app.services.message_service import text_parts
 
@@ -97,13 +98,13 @@ async def prepare_turn(
 
 
 async def _finalize(
-    factory: async_sessionmaker[AsyncSession], message_id: uuid.UUID, text: str, status: str, usage: Usage | None
+    factory: async_sessionmaker[AsyncSession], message_id: uuid.UUID, parts: list[dict], status: str, usage: Usage | None
 ) -> None:
     async with factory() as session:
         message = await session.get(Message, message_id)
         if message is None:  # the conversation was deleted mid-stream: nothing left to update
             return
-        message.parts = text_parts(text)
+        message.parts = parts
         message.status = status
         if usage is not None:
             message.tokens_in, message.tokens_out = usage.tokens_in, usage.tokens_out
@@ -132,9 +133,19 @@ async def stream_turn(
             await queue.put(LLMError())
 
     producer = asyncio.create_task(produce())
-    text: list[str] = []
+    parts: list[dict] = []  # finished parts, in the order they arrived
+    text_buf: list[str] = []  # the text part currently being written
     usage: Usage | None = None
     finalized = False
+
+    def flush_text() -> None:
+        if text_buf:
+            parts.append({"type": "text", "text": "".join(text_buf)})
+            text_buf.clear()
+
+    def assembled() -> list[dict]:
+        flush_text()
+        return list(parts) or text_parts("")
     try:
         yield sse("start", {"user_message_id": str(turn.user_message_id), "assistant_message_id": str(turn.assistant_message_id)})
         while True:
@@ -144,7 +155,7 @@ async def stream_turn(
                 yield ": ping\n\n"  # keeps proxies from closing an idle connection while the model thinks
                 continue
             if item is _DONE:
-                await _finalize(factory, turn.assistant_message_id, "".join(text), "complete", usage)
+                await _finalize(factory, turn.assistant_message_id, assembled(), "complete", usage)
                 finalized = True
                 yield sse("done", {
                     "message_id": str(turn.assistant_message_id),
@@ -153,13 +164,19 @@ async def stream_turn(
                 })
                 return
             if isinstance(item, LLMError):
-                await _finalize(factory, turn.assistant_message_id, "".join(text), "error", usage)
+                await _finalize(factory, turn.assistant_message_id, assembled(), "error", usage)
                 finalized = True
                 yield sse("error", {"code": item.code, "message": item.message, "message_id": str(turn.assistant_message_id)})
                 return
             if isinstance(item, TextDelta):
-                text.append(item.text)
+                text_buf.append(item.text)
                 yield sse("token", {"text": item.text})
+            elif isinstance(item, PartEvent):
+                valid = validate_part(item.part)  # never store or send a part that has not passed validation
+                if valid is not None:
+                    flush_text()
+                    parts.append(valid)
+                    yield sse("part", valid)
             elif isinstance(item, Usage):
                 usage = item
     finally:
@@ -168,4 +185,4 @@ async def stream_turn(
             # The consumer went away (Stop, closed tab, network drop). Save what we have as 'interrupted'.
             # Shielded: during cancellation a plain await would itself be cancelled and the write lost.
             with anyio.CancelScope(shield=True):
-                await _finalize(factory, turn.assistant_message_id, "".join(text), "interrupted", usage)
+                await _finalize(factory, turn.assistant_message_id, assembled(), "interrupted", usage)

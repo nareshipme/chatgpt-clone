@@ -216,3 +216,131 @@ async def test_an_interrupted_reply_is_included_in_the_next_turns_context(migrat
     next_turn = await chat_service.prepare_turn(factory, user.id, conv.id, "follow up")
     assert [m.role for m in next_turn.history] == ["user", "assistant", "user"]
     await engine.dispose()
+
+
+# ------------------------------------------------------------------ structured parts
+async def test_structured_parts_stream_in_order_and_are_saved_in_order(client, register_user):
+    a = await register_user("a@example.com")
+    c = await _conversation(client, a["headers"])
+    res = await _send(client, a["headers"], c["id"], "show me [table] and [chart]")
+    frames = parse_sse(res.text)
+    names = [e for e, _ in frames]
+    assert names[0] == "start" and names[-1] == "done"
+    part_frames = [d for e, d in frames if e == "part"]
+    assert [p["type"] for p in part_frames] == ["table", "chart"]
+    assert names.index("part") > max(i for i, n in enumerate(names) if n == "token")  # text first, then parts
+
+    saved = (await _thread(client, a["headers"], c["id"]))[1]
+    assert [p["type"] for p in saved["parts"]] == ["text", "table", "chart"]
+    assert saved["parts"][1]["rows"][0][0] == "North"
+    assert saved["status"] == "complete"
+
+
+async def test_image_and_choice_parts_are_saved_with_their_content(client, register_user):
+    a = await register_user("a@example.com")
+    c = await _conversation(client, a["headers"])
+    await _send(client, a["headers"], c["id"], "pictures [image] and [choices]")
+    parts = (await _thread(client, a["headers"], c["id"]))[1]["parts"]
+    image = next(p for p in parts if p["type"] == "image")
+    actions = next(p for p in parts if p["type"] == "actions")
+    assert image["url"].startswith("https://") and image["alt"]
+    assert [o["id"] for o in actions["options"]] == ["bullets", "short", "detail"]
+
+
+async def test_a_plain_reply_is_still_a_single_text_part(client, register_user):
+    a = await register_user("a@example.com")
+    c = await _conversation(client, a["headers"])
+    res = await _send(client, a["headers"], c["id"], "just words")
+    assert "part" not in [e for e, _ in parse_sse(res.text)]
+    assert [p["type"] for p in (await _thread(client, a["headers"], c["id"]))[1]["parts"]] == ["text"]
+
+
+async def test_an_invalid_part_is_dropped_and_the_stream_carries_on(client, register_user):
+    from app.llm.base import PartEvent
+
+    class Sloppy(MockProvider):
+        async def stream(self, messages, **kw):
+            yield TextDelta("before ")
+            yield PartEvent({"type": "image", "url": "javascript:alert(1)", "alt": "evil"})  # unsafe
+            yield PartEvent({"type": "script", "code": "alert(1)"})  # unknown type
+            yield PartEvent({"type": "table", "columns": ["a"], "rows": [["x", "y"]]})  # rows do not match columns
+            yield TextDelta("after")
+            yield Usage(1, 2)
+
+    app.dependency_overrides[get_llm_provider] = lambda: Sloppy()
+    a = await register_user("a@example.com")
+    c = await _conversation(client, a["headers"])
+    res = await _send(client, a["headers"], c["id"], "hi")
+    frames = parse_sse(res.text)
+    assert "part" not in [e for e, _ in frames] and [e for e, _ in frames][-1] == "done"
+    assert "javascript" not in res.text and "script" not in res.text.replace("javascript", "")
+    saved = (await _thread(client, a["headers"], c["id"]))[1]
+    assert saved["parts"] == [{"type": "text", "text": "before after"}]  # nothing unsafe was stored
+
+
+async def test_text_before_and_after_a_part_stays_in_the_right_order(client, register_user):
+    from app.llm.base import PartEvent
+
+    class Interleaved(MockProvider):
+        async def stream(self, messages, **kw):
+            yield TextDelta("Here is the table: ")
+            yield PartEvent({"type": "table", "columns": ["a"], "rows": [[1]]})
+            yield TextDelta("and that is all.")
+
+    app.dependency_overrides[get_llm_provider] = lambda: Interleaved()
+    a = await register_user("a@example.com")
+    c = await _conversation(client, a["headers"])
+    await _send(client, a["headers"], c["id"], "hi")
+    parts = (await _thread(client, a["headers"], c["id"]))[1]["parts"]
+    assert [p["type"] for p in parts] == ["text", "table", "text"]
+    assert parts[0]["text"] == "Here is the table: " and parts[2]["text"] == "and that is all."
+
+
+async def test_stopping_keeps_the_text_and_parts_that_had_already_arrived(migrated_db):
+    from app.llm.base import PartEvent
+    from app.services import auth_service, conversation_service
+
+    class TableThenSlow(MockProvider):
+        async def stream(self, messages, **kw):
+            yield TextDelta("Here you go. ")
+            yield PartEvent({"type": "table", "columns": ["a"], "rows": [[1]]})
+            for _ in range(50):
+                import asyncio
+                await asyncio.sleep(0.05)
+                yield TextDelta("more ")
+
+    engine = create_async_engine(migrated_db)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as s:
+        user = await auth_service.register(s, email="u@example.com", password="a-long-enough-pw", display_name="U")
+        conv = await conversation_service.create(s, user.id)
+    turn = await chat_service.prepare_turn(factory, user.id, conv.id, "go")
+    stream = chat_service.stream_turn(factory, TableThenSlow(), turn)
+    for _ in range(4):  # start, text, part, one more token
+        await anext(stream)
+    await stream.aclose()
+    async with factory() as s:
+        row = await s.get(Message, turn.assistant_message_id)
+        assert row.status == "interrupted"
+        assert [p["type"] for p in row.parts] == ["text", "table", "text"]
+    await engine.dispose()
+
+
+async def test_the_models_context_contains_only_text_not_structured_parts(client, register_user):
+    seen = []
+
+    class Recorder(MockProvider):
+        async def stream(self, messages, **kw):
+            seen.append([(m.role, m.content) for m in messages])
+            async for e in super().stream(messages, **kw):
+                yield e
+
+    app.dependency_overrides[get_llm_provider] = lambda: Recorder()
+    a = await register_user("a@example.com")
+    c = await _conversation(client, a["headers"])
+    await _send(client, a["headers"], c["id"], "first [table]")
+    await _send(client, a["headers"], c["id"], "second")
+    history = seen[1]
+    assert [r for r, _ in history] == ["user", "assistant", "user"]
+    assert all(isinstance(content, str) for _, content in history)
+    assert "North" not in history[1][1]  # table cells are not fed back as text

@@ -31,7 +31,18 @@ class Usage:
     tokens_out: int
 
 
-LLMEvent = TextDelta | Usage
+@dataclass(frozen=True)
+class PartEvent:
+    """A structured part (table, chart, image, actions) produced by the backend, not by free-form model text.
+
+    The chat service validates it before storing or sending it, so a provider cannot smuggle in invalid
+    or unsafe content.
+    """
+
+    part: dict
+
+
+LLMEvent = TextDelta | Usage | PartEvent
 
 
 class LLMError(Exception):
