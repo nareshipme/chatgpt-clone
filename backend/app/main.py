@@ -1,11 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, conversations, health, me, messages
 from app.config import settings
+from app.llm.factory import validate_llm_config
 from app.errors import NoStoreMiddleware, RequestIdMiddleware, register_error_handlers
 
-app = FastAPI(title="Tessera Chat API", version="0.0.1")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    validate_llm_config()  # refuse to start with a missing key or the mock in production
+    yield
+
+
+app = FastAPI(title="Tessera Chat API", version="0.0.1", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

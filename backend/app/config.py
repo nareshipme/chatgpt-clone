@@ -16,11 +16,13 @@ class Settings(BaseSettings):
     # True in production (HTTPS only). False locally so the cookie works over http://localhost.
     cookie_secure: bool = False
 
-    # Language model. "mock" is the safe default (offline, deterministic); production sets LLM_PROVIDER=poe.
+    # Language model. "mock" (offline, deterministic) is for local development and tests only: the app refuses to
+    # start in production (COOKIE_SECURE=true) with it. "openai_compatible" talks to any OpenAI-style API
+    # (OpenRouter, Poe, Gemini, Groq...) using the three settings below.
     llm_provider: str = "mock"
-    poe_api_key: str | None = None
-    poe_base_url: str = "https://api.poe.com/v1"
-    poe_model: str = "claude-sonnet-5.5"
+    llm_api_key: str | None = None
+    llm_base_url: str = "https://openrouter.ai/api/v1"
+    llm_model: str = "poolside/laguna-s-2.1:free"
     llm_request_timeout_s: float = 60.0
     llm_max_history_messages: int = 40
 

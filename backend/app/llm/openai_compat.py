@@ -1,8 +1,7 @@
-"""Poe backend, via Poe's OpenAI-compatible Chat Completions API.
+"""Real LLM backend for any OpenAI-compatible Chat Completions API (OpenRouter, Poe, Gemini, Groq...).
 
-Docs: https://creator.poe.com/docs/external-applications/openai-compatible-api
-Poe model ids are lowercase bot names (e.g. claude-sonnet-5.5). Poe has no JSON-schema structured outputs
-and ignores strict tool schemas, so this provider only streams text for now.
+There is no fallback to another model or to the mock: if the call fails, or the model returns no text,
+the user gets a clear error. Only streams text for now.
 """
 import logging
 from collections.abc import AsyncIterator
@@ -12,17 +11,17 @@ from openai import AsyncOpenAI
 
 from app.llm.base import ChatMessage, LLMError, LLMEvent, TextDelta, Usage
 
-log = logging.getLogger("app.llm.poe")
+log = logging.getLogger("app.llm.openai_compat")
 
 
-class PoeProvider:
-    name = "poe"
+class OpenAICompatProvider:
+    name = "openai_compatible"
 
     def __init__(
         self,
         *,
         api_key: str,
-        base_url: str = "https://api.poe.com/v1",
+        base_url: str,
         model: str,
         timeout_s: float = 60.0,
         max_retries: int = 2,
@@ -53,6 +52,7 @@ class PoeProvider:
         except openai.OpenAIError as exc:
             raise self._translate(exc) from None
 
+        produced_text = False
         try:
             async for chunk in response:
                 usage = getattr(chunk, "usage", None)
@@ -62,7 +62,12 @@ class PoeProvider:
                     continue
                 text = chunk.choices[0].delta.content
                 if text:
+                    produced_text = True
                     yield TextDelta(text)
+            if not produced_text:
+                # Some models (e.g. reasoning ones) return only hidden reasoning. A blank reply is a failure.
+                log.warning("empty completion model=%s", self.model)
+                raise LLMError("llm_empty", "The assistant returned an empty answer. Please try again.")
         except openai.OpenAIError as exc:
             raise self._translate(exc) from None
         finally:
@@ -76,7 +81,7 @@ class PoeProvider:
         """Map SDK errors to our small, safe vocabulary. Details go to the server log, never to the client."""
         status = getattr(exc, "status_code", None)
         request_id = getattr(exc, "request_id", None)
-        log.warning("poe error type=%s status=%s request_id=%s", type(exc).__name__, status, request_id)
+        log.warning("llm error type=%s status=%s request_id=%s", type(exc).__name__, status, request_id)
         if isinstance(exc, openai.RateLimitError):
             return LLMError("llm_rate_limited", "The assistant is busy right now. Please try again in a moment.")
         if isinstance(exc, (openai.APITimeoutError, openai.APIConnectionError)):

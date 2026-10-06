@@ -10,7 +10,7 @@ FastAPI + SQLAlchemy 2 (async) + PostgreSQL + Alembic + Redis; React 18 + TypeSc
 - Keep the backend layered: routers -> services -> repositories -> models. No DB access in routers.
 - Every query is scoped to the current user. Add an ownership test for each new resource.
 - Messages are typed JSON "parts" (text, table, chart, image, actions). Follow the SSE contract in `docs/PLAN.md` section 4.5.
-- Real LLM = Poe API via the `openai` SDK (`POE_BASE_URL=https://api.poe.com/v1`, key in `POE_API_KEY`). `MockProvider` is only for tests/CI/no-key demo mode. Poe ignores `strict` tool schemas and has no JSON-schema outputs: validate tool args with Pydantic and build message parts server-side from tool results. Never print, log or commit the key.
+- Real LLM = any OpenAI-compatible API via the `openai` SDK (`LLM_BASE_URL`, `LLM_MODEL`, key in `LLM_API_KEY`; currently OpenRouter free models, Poe needs a paid subscription). There is NO fallback to the mock or to another model: a missing key stops startup, a failing or empty reply shows an error. `MockProvider` is only for tests/CI/local dev (refused when COOKIE_SECURE=true). Free models may ignore tool schemas: validate tool args with Pydantic and build message parts server-side from tool results. Never print, log or commit the key.
 - No secrets in git; use `.env` (ignored) and keep `.env.example` current.
 - Small, clearly labeled commits. Update README and ADRs when decisions change.
 
