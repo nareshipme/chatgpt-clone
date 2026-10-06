@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 type Health = { status: string; db: string; redis: string };
 
-// Deployment smoke test only. Real UI (auth, chat, streaming) replaces this.
-export default function App() {
+// Deployment smoke test: API health and an SSE streaming check. Kept at /status as a diagnostic page.
+export default function StatusPage() {
   const [health, setHealth] = useState<Health | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ticks, setTicks] = useState<number[]>([]);
