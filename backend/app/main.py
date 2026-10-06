@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health
 from app.config import settings
+from app.errors import RequestIdMiddleware, register_error_handlers
 
 app = FastAPI(title="ChatGPT Clone API", version="0.0.1")
 
@@ -13,5 +14,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RequestIdMiddleware)
+register_error_handlers(app)
 
 app.include_router(health.router, prefix="/api/v1")
