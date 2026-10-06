@@ -148,6 +148,19 @@ async def test_streamed_tool_call_fragments_are_reassembled_into_whole_calls():
     ]  # a tool-only reply is not "empty"
 
 
+async def test_a_tool_call_written_as_text_is_hidden_and_turned_into_a_real_call():
+    stream = FakeStream([chunk("I will check. <tool_"), chunk("call>get_lane_cost_carbon<arg_key>lane</arg_key><arg_value>Atlanta-Miami</arg_value></tool_call>")])
+    events = await collect(provider(FakeClient(stream)), tools=[{"type": "function", "function": {"name": "x"}}])
+    assert [e.text for e in events if isinstance(e, TextDelta)] == ["I will check. "]
+    assert events[-1] == ToolCall("call-text-1", "get_lane_cost_carbon", '{"lane": "Atlanta-Miami"}')
+
+
+async def test_without_tools_offered_nothing_is_rewritten():
+    stream = FakeStream([chunk("literal <tool_call>x</tool_call> text")])
+    events = await collect(provider(FakeClient(stream)))
+    assert "".join(e.text for e in events if isinstance(e, TextDelta)) == "literal <tool_call>x</tool_call> text"
+
+
 async def test_tools_are_sent_only_when_offered_and_tool_messages_use_the_openai_format():
     client = FakeClient(FakeStream([chunk("ok")]))
     history = [

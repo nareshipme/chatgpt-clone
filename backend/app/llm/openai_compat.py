@@ -10,6 +10,7 @@ import openai
 from openai import AsyncOpenAI
 
 from app.llm.base import ChatMessage, LLMError, LLMEvent, TextDelta, ToolCall, Usage
+from app.llm.toolmarkup import ToolMarkupFilter
 
 log = logging.getLogger("app.llm.openai_compat")
 
@@ -67,6 +68,8 @@ class OpenAICompatProvider:
 
         produced_text = False
         pending: dict[int, dict] = {}  # tool calls arrive in fragments: name once, arguments in pieces
+        # Some models write tool calls as text; catch that so it neither shows up in the chat nor goes unrun.
+        markup = ToolMarkupFilter() if tools else None
         try:
             async for chunk in response:
                 usage = getattr(chunk, "usage", None)
@@ -82,14 +85,24 @@ class OpenAICompatProvider:
                         slot["name"] += frag.function.name or ""
                         slot["arguments"] += frag.function.arguments or ""
                 text = delta.content
+                if text and markup is not None:
+                    text = markup.feed(text)
                 if text:
                     produced_text = True
                     yield TextDelta(text)
+            if markup is not None:
+                tail = markup.flush()
+                if tail:
+                    produced_text = True
+                    yield TextDelta(tail)
             for index in sorted(pending):
                 call = pending[index]
                 if call["name"]:
                     yield ToolCall(call["id"] or f"call-{index}", call["name"], call["arguments"])
-            if not produced_text and not any(c["name"] for c in pending.values()):
+            text_calls = markup.calls if markup is not None else []
+            for call in text_calls:
+                yield call
+            if not produced_text and not text_calls and not any(c["name"] for c in pending.values()):
                 # Some models (e.g. reasoning ones) return only hidden reasoning. A blank reply is a failure.
                 log.warning("empty completion model=%s", self.model)
                 raise LLMError("llm_empty", "The assistant returned an empty answer. Please try again.")
