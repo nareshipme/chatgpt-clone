@@ -11,6 +11,7 @@ class AppError(Exception):
     status_code = 400
     code = "bad_request"
     default_message = "Bad request"
+    headers: dict[str, str] | None = None
 
     def __init__(self, message: str | None = None, *, details=None):
         super().__init__(message or self.default_message)
@@ -20,6 +21,7 @@ class AppError(Exception):
 
 class UnauthorizedError(AppError):
     status_code, code, default_message = 401, "unauthorized", "Authentication required"
+    headers = {"WWW-Authenticate": "Bearer"}  # tells clients which scheme to use (RFC 7235)
 
 
 class ForbiddenError(AppError):
@@ -65,7 +67,7 @@ class RequestIdMiddleware:
 
 
 def error_response(request: Request, exc: AppError) -> JSONResponse:
-    return JSONResponse(_body(request, exc.code, exc.message, exc.details), status_code=exc.status_code)
+    return JSONResponse(_body(request, exc.code, exc.message, exc.details), status_code=exc.status_code, headers=exc.headers)
 
 
 def register_error_handlers(app: FastAPI) -> None:
