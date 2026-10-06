@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic
+COPY scripts ./scripts
 
-# Railway injects PORT; default for local Docker.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+# Railway injects PORT (default 8000 locally). The script runs migrations, then starts uvicorn.
+CMD ["sh", "scripts/start.sh"]
