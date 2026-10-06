@@ -14,11 +14,9 @@ router = APIRouter(tags=["health"])
 
 
 async def _check_db() -> str:
-    if not settings.database_url:
+    url = settings.async_database_url
+    if not url:
         return "not_configured"
-    url = settings.database_url
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     engine = create_async_engine(url, pool_pre_ping=True)
     try:
         async with asyncio.timeout(3):
