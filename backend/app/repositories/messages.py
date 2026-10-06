@@ -15,8 +15,11 @@ async def add(
     role: str,
     parts: list[dict],
     status: str = "complete",
+    created_at: datetime | None = None,
 ) -> Message:
     message = Message(conversation_id=conversation_id, role=role, parts=parts, status=status)
+    if created_at is not None:
+        message.created_at = created_at
     session.add(message)
     await session.flush()
     return message
