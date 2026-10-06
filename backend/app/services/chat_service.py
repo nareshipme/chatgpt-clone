@@ -38,6 +38,11 @@ from app.services.message_service import text_parts
 
 log = logging.getLogger("app.chat")
 
+OUT_OF_TOOLS = ChatMessage(
+    "user",
+    "You have used all the tool calls you are allowed. Do not call any more tools. Answer now, in plain text, "
+    "using only the tool results above, and say what you could not check.",
+)
 MAX_TOOL_RESULT_CHARS = 8000  # what we hand back to the model; the user still gets the full tables
 HEARTBEAT_SECONDS = 15.0
 STREAM_STALE_AFTER = timedelta(minutes=5)
@@ -171,7 +176,8 @@ async def stream_turn(
                 offer = tools if round_no < settings.llm_max_tool_rounds else None
                 calls: list[ToolCall] = []
                 said: list[str] = []
-                async for event in provider.stream(messages, system=turn.system_prompt, tools=offer):
+                last_round = offer is None and round_no > 0
+                async for event in provider.stream(messages + [OUT_OF_TOOLS] if last_round else messages, system=turn.system_prompt, tools=offer):
                     if isinstance(event, ToolCall):
                         calls.append(event)
                         continue

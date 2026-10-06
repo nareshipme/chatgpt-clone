@@ -155,10 +155,10 @@ async def test_a_tool_call_written_as_text_is_hidden_and_turned_into_a_real_call
     assert events[-1] == ToolCall("call-text-1", "get_lane_cost_carbon", '{"lane": "Atlanta-Miami"}')
 
 
-async def test_without_tools_offered_nothing_is_rewritten():
-    stream = FakeStream([chunk("literal <tool_call>x</tool_call> text")])
+async def test_when_no_tools_are_offered_text_tool_markup_is_still_hidden_and_never_run():
+    stream = FakeStream([chunk("Final words. <tool_call>get_lane_cost_carbon<arg_key>lane</arg_key><arg_value>Atlanta-Miami</arg_value></tool_call>")])
     events = await collect(provider(FakeClient(stream)))
-    assert "".join(e.text for e in events if isinstance(e, TextDelta)) == "literal <tool_call>x</tool_call> text"
+    assert events == [TextDelta("Final words. ")]  # shown text only; the call is dropped, not executed
 
 
 async def test_tools_are_sent_only_when_offered_and_tool_messages_use_the_openai_format():

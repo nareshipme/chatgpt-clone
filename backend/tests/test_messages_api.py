@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 
 import pytest
@@ -18,6 +19,7 @@ async def _seed(migrated_db, conversation_id, user_id, rows):
     async with AsyncSession(engine, expire_on_commit=False) as s:
         for role, text in rows:
             await message_service.add_message(s, uuid.UUID(user_id), uuid.UUID(conversation_id), role=role, text=text)
+            await asyncio.sleep(0.02)  # a coarse clock (Windows) can give equal timestamps; the tiebreak is a random UUID
         await s.commit()
     await engine.dispose()
 
