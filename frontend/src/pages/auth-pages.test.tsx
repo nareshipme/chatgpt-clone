@@ -47,6 +47,14 @@ describe("auth pages", () => {
     expect(await screen.findByText(/hello, ada/i)).toBeInTheDocument();
   });
 
+  it("labels itself as a demo and never presents itself under another company's brand", async () => {
+    stubFetch({ "POST /auth/refresh": noSession });
+    renderApp("/login");
+    expect(await screen.findByText("Tessera Chat")).toBeInTheDocument();
+    expect(screen.getByText(/demo project built for a technical assessment/i)).toBeInTheDocument();
+    expect(screen.queryByText(/chatgpt/i)).not.toBeInTheDocument();
+  });
+
   it("keeps the sign-in button disabled until both fields are filled", async () => {
     stubFetch({ "POST /auth/refresh": noSession });
     renderApp("/login");

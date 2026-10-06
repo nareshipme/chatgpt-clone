@@ -3,6 +3,7 @@ import { AppBar, Box, Drawer, IconButton, Toolbar, Typography, useMediaQuery } f
 import { useTheme } from "@mui/material/styles";
 import { useState } from "react";
 import { Outlet, useParams } from "react-router-dom";
+import { BRAND } from "../app/brand";
 import { Sidebar } from "../components/Sidebar";
 
 const DRAWER_WIDTH = 300;
@@ -32,7 +33,7 @@ export default function ChatLayout() {
               <IconButton edge="start" aria-label="Open conversations" onClick={() => setMobileOpen(true)} sx={{ mr: 1 }}>
                 <MenuIcon />
               </IconButton>
-              <Typography variant="h6">ChatGPT Clone</Typography>
+              <Typography variant="h6">{BRAND}</Typography>
             </Toolbar>
           </AppBar>
         )}

@@ -45,7 +45,7 @@ export default function StatusPage() {
 
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", maxWidth: 640, margin: "3rem auto", padding: "0 1rem" }}>
-      <h1>ChatGPT Clone</h1>
+      <h1>Tessera Chat</h1>
       <p>Deployment skeleton. If you can read this, the web service is up. (Deployed from GitHub via Railway autodeploy.)</p>
       <h2>API health</h2>
       {health ? <pre>{JSON.stringify(health, null, 2)}</pre> : <p>{error ?? "Checking..."}</p>}

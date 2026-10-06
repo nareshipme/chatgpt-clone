@@ -1,6 +1,6 @@
-# ChatGPT Clone
+# Tessera Chat
 
-Full stack ChatGPT-style app (FastAPI + React). Status: **deployment skeleton** (health check, SSE smoke test, Nginx proxy, Dockerfiles). Features are added per `docs/PLAN.md`.
+A full stack, ChatGPT-style conversational app (FastAPI + React) built for a technical assessment. It is a demo, not a real service. Status: **deployment skeleton** (health check, SSE smoke test, Nginx proxy, Dockerfiles). Features are added per `docs/PLAN.md`.
 
 **Live skeleton:** https://web-production-cb37f.up.railway.app (auto-deployed from `main` on Railway)
 
