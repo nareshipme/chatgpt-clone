@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     llm_request_timeout_s: float = 60.0
     # Free tiers throttle often. The SDK waits (exponential backoff, honours Retry-After) and retries the same model.
     llm_max_retries: int = 5
+    llm_max_tool_rounds: int = 4  # model -> tools -> model loops allowed per reply
     llm_max_history_messages: int = 40
 
     @property

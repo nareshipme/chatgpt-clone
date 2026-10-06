@@ -37,6 +37,8 @@ class Message(Base):
     # JSONB on PostgreSQL (indexable, compact); plain JSON elsewhere (SQLite in tests).
     parts: Mapped[list] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), nullable=False, default=list)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="complete", server_default="complete")
+    # Server-side facts about how the answer was made, e.g. {"provenance": [...]} (tools called, as-of, assumptions).
+    meta: Mapped[dict | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), nullable=True)
     tokens_in: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

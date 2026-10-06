@@ -342,3 +342,40 @@ describe("hand-over from live reply to saved reply", () => {
     expect(document.querySelectorAll('[data-role="assistant"]')).toHaveLength(1);
   });
 });
+
+describe("tool calls", () => {
+  it("shows which tool is running, then its table, and clears the chips when the saved reply arrives", async () => {
+    let sse!: ReturnType<typeof sseResponse>;
+    const { setThread } = setup({ onSend: (init) => (sse = sseResponse(init)).response });
+    await userEvent.type(await box(), "what is at risk?");
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    sse.push("token", { text: "Let me check. " });
+    sse.push("tool", { id: "c1", name: "list_at_risk_shipments", status: "running", message: null });
+    expect(await screen.findByText("Checking: shipments at risk")).toBeInTheDocument();
+    sse.push("part", { type: "table", title: "At risk", columns: ["Shipment"], rows: [["SHP-4105"]] });
+    sse.push("tool", { id: "c1", name: "list_at_risk_shipments", status: "done", message: null });
+    expect(await screen.findByText("Checked: shipments at risk")).toBeInTheDocument();
+    expect(screen.queryByText("Checking: shipments at risk")).not.toBeInTheDocument(); // same call, updated in place
+    expect(await screen.findByRole("table", { name: "At risk" })).toBeInTheDocument();
+
+    setThread([rich("m1", "user", [{ type: "text", text: "what is at risk?" }]), rich("m2", "assistant", [
+      { type: "text", text: "Let me check. " }, { type: "table", title: "At risk", columns: ["Shipment"], rows: [["SHP-4105"]] },
+    ])]);
+    sse.push("done", {});
+    sse.close();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument());
+    expect(screen.queryByText(/Checked:/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("table", { name: "At risk" })).toHaveLength(1);
+  });
+
+  it("says plainly when a tool could not run", async () => {
+    let sse!: ReturnType<typeof sseResponse>;
+    setup({ onSend: (init) => (sse = sseResponse(init)).response });
+    await userEvent.type(await box(), "hello");
+    await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+    sse.push("tool", { id: "c9", name: "get_lane_cost_carbon", status: "error", message: "bad lane" });
+    expect(await screen.findByText("Could not check: lane cost and carbon")).toBeInTheDocument();
+    sse.close();
+  });
+});

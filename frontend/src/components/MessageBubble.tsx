@@ -1,10 +1,11 @@
 import CheckIcon from "@mui/icons-material/Check";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { Box, IconButton, Paper, Tooltip, Typography } from "@mui/material";
+import { Box, Chip, CircularProgress, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import { useState } from "react";
-import type { MessagePart } from "../api/types";
+import type { MessagePart, ToolEvent } from "../api/types";
 import { copyText } from "../lib/clipboard";
 import { partsToPlainText } from "../lib/parts";
+import { toolLabel } from "../lib/tools";
 import { PartsView } from "./PartsView";
 
 interface Props {
@@ -16,17 +17,19 @@ interface Props {
   status?: "streaming" | "complete" | "interrupted" | "error";
   /** True while this bubble is still receiving content. */
   live?: boolean;
+  /** Tools run for this reply so far (shown while it is being written). */
+  tools?: ToolEvent[];
   /** Choice buttons in this message can be clicked (only the newest reply with nothing after it). */
   actionsActive?: boolean;
   answeredWith?: string;
   onChoose?: (value: string) => void;
 }
 
-export function MessageBubble({ role, parts, text = "", status, live, actionsActive, answeredWith, onChoose }: Props) {
+export function MessageBubble({ role, parts, text = "", status, live, tools = [], actionsActive, answeredWith, onChoose }: Props) {
   const content: MessagePart[] = parts ?? (text ? [{ type: "text", text }] : []);
   const isUser = role === "user";
   const hasContent = content.some((p) => p.type !== "text" || p.text);
-  const waiting = !isUser && !hasContent && (live || status === "streaming");
+  const waiting = !isUser && !hasContent && tools.length === 0 && (live || status === "streaming");
   const [copied, setCopied] = useState(false);
   const canCopy = !isUser && hasContent && !live;
 
@@ -66,6 +69,20 @@ export function MessageBubble({ role, parts, text = "", status, live, actionsAct
           </Typography>
         ) : (
           <Typography component="div">
+            {tools.length > 0 && (
+              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mb: 1 }} role="status" aria-label="Tools used">
+                {tools.map((t) => (
+                  <Chip
+                    key={t.id}
+                    size="small"
+                    variant="outlined"
+                    color={t.status === "error" ? "error" : t.status === "done" ? "success" : "default"}
+                    icon={t.status === "running" ? <CircularProgress size={12} /> : undefined}
+                    label={t.status === "running" ? `Checking: ${toolLabel(t.name)}` : t.status === "done" ? `Checked: ${toolLabel(t.name)}` : `Could not check: ${toolLabel(t.name)}`}
+                  />
+                ))}
+              </Stack>
+            )}
             <PartsView parts={content} live={live} actionsActive={actionsActive} answeredWith={answeredWith} onChoose={onChoose} />
           </Typography>
         )}

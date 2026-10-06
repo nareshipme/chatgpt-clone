@@ -2,9 +2,13 @@ import asyncio
 import re
 from collections.abc import AsyncIterator
 
-from app.llm.base import ChatMessage, LLMError, LLMEvent, PartEvent, TextDelta, Usage
+import json
+
+from app.llm.base import ChatMessage, LLMError, LLMEvent, PartEvent, TextDelta, ToolCall, Usage
 
 _WORD = re.compile(r"\S+\s*")
+# "[tool:NAME]" or "[tool:NAME {json}]" in a user message makes the mock call that tool (deterministic tool calling).
+_TOOL_TRIGGER = re.compile(r"\[tool:([a-z_]+)(?:\s+(\{.*?\}))?\]")
 
 DEMO_PARTS: dict[str, dict] = {
     "[table]": {
@@ -61,8 +65,25 @@ class MockProvider:
         *,
         system: str | None = None,
         temperature: float | None = None,
+        tools: list[dict] | None = None,
     ) -> AsyncIterator[LLMEvent]:
+        # Tool round trip: first ask for the tool, then (once a tool message is present) summarise its result.
+        if messages and messages[-1].role == "tool":
+            for m in messages:
+                if m.role == "tool":
+                    result = json.loads(m.content)
+                    text = f"The tool reported an error: {result['error']}" if "error" in result else f"Here is what the tool returned: {', '.join(list(result)[:4])}."
+                    for word in _WORD.findall(text):
+                        yield TextDelta(word)
+            yield Usage(tokens_in=10, tokens_out=10)
+            return
         last_user = next((m.content for m in reversed(messages) if m.role == "user"), "")
+        wanted = _TOOL_TRIGGER.search(last_user) if tools else None
+        if wanted:
+            yield TextDelta("Let me check. ")
+            yield ToolCall("call-1", wanted.group(1), wanted.group(2) or "{}")
+            yield Usage(tokens_in=10, tokens_out=5)
+            return
         reply = f"You said: {last_user.strip()}. This is a demo reply from the mock provider."
         words = _WORD.findall(reply)
         delay = 0.15 if "[slow]" in last_user else self.delay

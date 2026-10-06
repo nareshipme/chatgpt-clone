@@ -5,7 +5,7 @@ import openai
 import pytest
 
 from app.config import settings
-from app.llm.base import ChatMessage, LLMError, TextDelta, Usage
+from app.llm.base import ChatMessage, LLMError, TextDelta, ToolCall, Usage
 from app.llm.factory import build_provider, validate_llm_config
 from app.llm.mock import MockProvider
 from app.llm.openai_compat import OpenAICompatProvider
@@ -128,6 +128,41 @@ async def test_a_reply_with_no_text_is_an_error_not_a_blank_bubble():
     with pytest.raises(LLMError) as exc:
         await collect(provider(FakeClient(stream)))
     assert exc.value.code == "llm_empty"
+
+
+def frag(index, id=None, name=None, args=None):
+    fn = SimpleNamespace(name=name, arguments=args)
+    delta = SimpleNamespace(content=None, tool_calls=[SimpleNamespace(index=index, id=id, function=fn)])
+    return SimpleNamespace(choices=[SimpleNamespace(delta=delta)], usage=None)
+
+
+async def test_streamed_tool_call_fragments_are_reassembled_into_whole_calls():
+    stream = FakeStream([
+        frag(0, "call_a", "get_lane_cost_carbon", ""), frag(0, None, None, '{"lane": '), frag(0, None, None, '"Atlanta-Miami"}'),
+        frag(1, "call_b", "list_at_risk_shipments", "{}"),
+    ])
+    events = await collect(provider(FakeClient(stream)), tools=[{"type": "function", "function": {"name": "x"}}])
+    assert events == [
+        ToolCall("call_a", "get_lane_cost_carbon", '{"lane": "Atlanta-Miami"}'),
+        ToolCall("call_b", "list_at_risk_shipments", "{}"),
+    ]  # a tool-only reply is not "empty"
+
+
+async def test_tools_are_sent_only_when_offered_and_tool_messages_use_the_openai_format():
+    client = FakeClient(FakeStream([chunk("ok")]))
+    history = [
+        ChatMessage("user", "q"),
+        ChatMessage("assistant", "", tool_calls=(ToolCall("c1", "t", '{"a": 1}'),)),
+        ChatMessage("tool", '{"x": 2}', tool_call_id="c1"),
+    ]
+    await collect(provider(client), history, tools=[{"type": "function", "function": {"name": "t"}}])
+    sent = client.calls[0]
+    assert sent["tools"][0]["function"]["name"] == "t"
+    assert sent["messages"][1] == {"role": "assistant", "content": None, "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "t", "arguments": '{"a": 1}'}}]}
+    assert sent["messages"][2] == {"role": "tool", "tool_call_id": "c1", "content": '{"x": 2}'}
+    client2 = FakeClient(FakeStream([chunk("ok")]))
+    await collect(provider(client2), history[:1])
+    assert "tools" not in client2.calls[0]
 
 
 # ------------------------------------------------------------------ factory

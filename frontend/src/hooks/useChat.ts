@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, apiStream } from "../api/client";
-import type { MessagePart } from "../api/types";
+import type { MessagePart, ToolEvent } from "../api/types";
 import { listMessages } from "../api/messages";
 import { readSse } from "../api/sse";
 import { conversationKeys, useUserId } from "./useConversations";
@@ -11,6 +11,8 @@ export interface LiveTurn {
   userText: string;
   /** The reply so far, as typed parts (text before and after a table stays in order). */
   parts: MessagePart[];
+  /** Tools the assistant has run (or is running) for this reply. */
+  tools: ToolEvent[];
 }
 
 /** Append streamed text to the last text part, or start a new one after a structured part. */
@@ -73,7 +75,7 @@ export function useChat(conversationId: string) {
       abortRef.current = controller;
       setError(null);
       setBaseCount(qc.getQueryData<{ items: unknown[] }>(conversationKeys.messages(userId, conversationId))?.items.length ?? 0);
-      setLive({ userText: text, parts: [] });
+      setLive({ userText: text, parts: [], tools: [] });
       let stoppedByUser = false;
       try {
         const res = await apiStream(`/conversations/${conversationId}/messages`, { body: { content: text }, signal: controller.signal });
@@ -89,6 +91,13 @@ export function useChat(conversationId: string) {
             // A structured part (table, chart, image, actions). The server has already validated it.
             const part = frame.data as MessagePart;
             setLive((l) => (l ? { ...l, parts: [...l.parts, part] } : l));
+          } else if (frame.event === "tool") {
+            const t = frame.data as ToolEvent;
+            setLive((l) => {
+              if (!l) return l;
+              const known = l.tools.some((x) => x.id === t.id);
+              return { ...l, tools: known ? l.tools.map((x) => (x.id === t.id ? t : x)) : [...l.tools, t] };
+            });
           } else if (frame.event === "error") {
             setError((frame.data as ErrorData).message);
             break;
