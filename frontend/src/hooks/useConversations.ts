@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   createConversation,
@@ -22,6 +22,8 @@ export function useConversationList(q: string) {
     queryFn: ({ pageParam }) => listConversations({ q, cursor: pageParam }),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next_cursor,
+    // While a new search is loading keep showing the previous results instead of flashing skeletons.
+    placeholderData: keepPreviousData,
   });
 }
 
