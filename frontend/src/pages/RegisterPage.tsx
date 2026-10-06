@@ -1,8 +1,9 @@
-import { Alert, Button, Link, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Button, Link, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { useState, type FormEvent } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useTenants } from "../hooks/useTenants";
 import { AuthLayout } from "./AuthLayout";
 
 type FieldErrors = Partial<Record<"email" | "password" | "display_name", string>>;
@@ -13,6 +14,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const tenants = useTenants();
+  const [tenantId, setTenantId] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -23,7 +26,7 @@ export default function RegisterPage() {
     setFieldErrors({});
     setBusy(true);
     try {
-      await register(email, password, displayName);
+      await register(email, password, displayName, tenantId || tenants.data?.[0]?.id);
       navigate("/", { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === "email_taken") {
@@ -76,6 +79,21 @@ export default function RegisterPage() {
             helperText={fieldErrors.password ?? "At least 10 characters"}
             required
           />
+          {tenants.data && tenants.data.length > 0 && (
+            <TextField
+              select
+              label="Demo company"
+              value={tenantId || tenants.data[0].id}
+              onChange={(e) => setTenantId(e.target.value)}
+              helperText="Each company has its own fictional supply-chain data. You only ever see your own."
+            >
+              {tenants.data.map((t) => (
+                <MenuItem key={t.id} value={t.id}>
+                  {t.name} ({t.industry})
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
           <Button type="submit" variant="contained" size="large" disabled={busy || !email || !password || !displayName}>
             {busy ? "Creating account..." : "Create account"}
           </Button>

@@ -1,7 +1,15 @@
+export interface Tenant {
+  id: string;
+  name: string;
+  industry: string;
+}
+
 export interface User {
   id: string;
   email: string;
   display_name: string;
+  tenant_id: string;
+  role: "planner" | "manager" | "viewer";
   created_at: string;
 }
 

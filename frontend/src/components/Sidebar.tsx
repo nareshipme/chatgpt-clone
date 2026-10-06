@@ -24,6 +24,7 @@ import { useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import type { Conversation } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { useTenants } from "../hooks/useTenants";
 import {
   useConversationList,
   useCreateConversation,
@@ -43,6 +44,8 @@ interface Props {
 export function Sidebar({ activeId, onNavigate }: Props) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const tenants = useTenants();
+  const companyName = tenants.data?.find((t) => t.id === user?.tenant_id)?.name;
   const [search, setSearch] = useState("");
   const q = useDebounced(search.trim());
   const list = useConversationList(q);
@@ -149,9 +152,16 @@ export function Sidebar({ activeId, onNavigate }: Props) {
 
       <Divider />
       <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography noWrap sx={{ flex: 1 }} title={user?.email}>
-          {user?.display_name}
-        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography noWrap title={user?.email}>
+            {user?.display_name}
+          </Typography>
+          {companyName && (
+            <Typography variant="caption" color="text.secondary" noWrap display="block">
+              {companyName}
+            </Typography>
+          )}
+        </Box>
         <Button size="small" onClick={() => void logout()}>
           Sign out
         </Button>
