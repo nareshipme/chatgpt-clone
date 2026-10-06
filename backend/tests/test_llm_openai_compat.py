@@ -141,6 +141,7 @@ def test_factory_builds_the_real_provider_from_llm_settings(monkeypatch):
     configure(monkeypatch)
     p = build_provider()
     assert isinstance(p, OpenAICompatProvider) and p.model == settings.llm_model
+    assert p._client.max_retries == settings.llm_max_retries >= 3  # patient with free-tier 429s
 
 
 def test_a_missing_key_fails_loudly_instead_of_falling_back_to_the_mock(monkeypatch):
