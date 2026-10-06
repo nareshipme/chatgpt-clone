@@ -25,7 +25,7 @@ export default function ChartView({ part }: { part: ChartPart }) {
             {part.series.length > 1 && <Legend />}
             {part.series.map((s, i) =>
               part.kind === "line" ? (
-                <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
+                <Line key={s.key} type="monotone" connectNulls={false} dataKey={s.key} name={s.label} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
               ) : (
                 <Bar key={s.key} dataKey={s.key} name={s.label} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} />
               ),
@@ -52,7 +52,7 @@ export default function ChartView({ part }: { part: ChartPart }) {
                 <TableCell>{String(point[part.x])}</TableCell>
                 {part.series.map((s) => (
                   <TableCell key={s.key} align="right">
-                    {String(point[s.key])}
+                    {point[s.key] ?? ""}
                   </TableCell>
                 ))}
               </TableRow>

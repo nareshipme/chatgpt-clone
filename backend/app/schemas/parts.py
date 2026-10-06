@@ -52,7 +52,8 @@ class ChartPart(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     x: str = Field(min_length=1, max_length=40)  # the data key used for the horizontal axis
     series: list[ChartSeries] = Field(min_length=1, max_length=MAX_CHART_SERIES)
-    data: list[dict[str, str | int | float]] = Field(max_length=MAX_CHART_POINTS)
+    # A null value is a gap in that series (for example, no actuals yet for future days).
+    data: list[dict[str, str | int | float | None]] = Field(max_length=MAX_CHART_POINTS)
 
     @model_validator(mode="after")
     def _data_has_the_declared_keys(self):
