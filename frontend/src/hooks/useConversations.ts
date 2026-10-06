@@ -16,9 +16,11 @@ export const conversationKeys = {
   all: (userId: string) => ["conversations", userId] as const,
   list: (userId: string, q: string) => ["conversations", userId, "list", q] as const,
   detail: (userId: string, id: string) => ["conversations", userId, "detail", id] as const,
+  messages: (userId: string, id: string) => ["conversations", userId, "messages", id] as const,
+  lists: (userId: string) => ["conversations", userId, "list"] as const,
 };
 
-function useUserId(): string {
+export function useUserId(): string {
   return useAuth().user?.id ?? "anonymous";
 }
 
