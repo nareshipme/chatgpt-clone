@@ -25,3 +25,12 @@ def test_downgrade_removes_users_table(migrated_db, alembic_cfg):
 def test_models_match_migrations(migrated_db, alembic_cfg):
     """Fails if someone changes a model without writing a migration (alembic check raises)."""
     command.check(alembic_cfg)
+
+
+def test_refresh_tokens_table_has_hash_unique_and_user_foreign_key(migrated_db):
+    insp = _inspect(migrated_db)
+    cols = {c["name"] for c in insp.get_columns("refresh_tokens")}
+    assert cols == {"id", "user_id", "family_id", "token_hash", "expires_at", "revoked_at", "created_at"}
+    assert ["token_hash"] in [u["column_names"] for u in insp.get_unique_constraints("refresh_tokens")]
+    fks = insp.get_foreign_keys("refresh_tokens")
+    assert fks[0]["referred_table"] == "users" and fks[0]["options"].get("ondelete") == "CASCADE"
