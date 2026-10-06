@@ -6,9 +6,9 @@ import pytest
 
 from app.config import settings
 from app.llm.base import ChatMessage, LLMError, TextDelta, Usage
-from app.llm.factory import build_provider
+from app.llm.factory import build_provider, validate_llm_config
 from app.llm.mock import MockProvider
-from app.llm.poe import PoeProvider
+from app.llm.openai_compat import OpenAICompatProvider
 
 REQ = httpx.Request("POST", "https://api.poe.com/v1/chat/completions")
 
@@ -50,7 +50,7 @@ class FakeClient:
 
 
 def provider(client):
-    return PoeProvider(api_key="secret-key-123", model="test-model", client=client)
+    return OpenAICompatProvider(api_key="secret-key-123", base_url="https://example.test/v1", model="test-model", client=client)
 
 
 async def collect(p, messages=None, **kw):
@@ -123,27 +123,62 @@ async def test_stopping_early_closes_the_upstream_stream():
     assert stream.closed is True
 
 
+async def test_a_reply_with_no_text_is_an_error_not_a_blank_bubble():
+    stream = FakeStream([chunk(None), chunk(None, usage=SimpleNamespace(prompt_tokens=3, completion_tokens=0))])
+    with pytest.raises(LLMError) as exc:
+        await collect(provider(FakeClient(stream)))
+    assert exc.value.code == "llm_empty"
+
+
 # ------------------------------------------------------------------ factory
-def test_factory_uses_poe_only_when_selected_and_a_key_is_present(monkeypatch):
-    monkeypatch.setattr(settings, "llm_provider", "poe")
-    monkeypatch.setattr(settings, "poe_api_key", "k")
-    assert isinstance(build_provider(), PoeProvider)
-    monkeypatch.setattr(settings, "poe_api_key", None)
-    assert isinstance(build_provider(), MockProvider)  # no key: demo mode, never a crash
-    monkeypatch.setattr(settings, "llm_provider", "mock")
-    monkeypatch.setattr(settings, "poe_api_key", "k")
+def configure(monkeypatch, provider="openai_compatible", key="k", secure=False):
+    monkeypatch.setattr(settings, "llm_provider", provider)
+    monkeypatch.setattr(settings, "llm_api_key", key)
+    monkeypatch.setattr(settings, "cookie_secure", secure)
+
+
+def test_factory_builds_the_real_provider_from_llm_settings(monkeypatch):
+    configure(monkeypatch)
+    p = build_provider()
+    assert isinstance(p, OpenAICompatProvider) and p.model == settings.llm_model
+
+
+def test_a_missing_key_fails_loudly_instead_of_falling_back_to_the_mock(monkeypatch):
+    configure(monkeypatch, key=None)
+    with pytest.raises(RuntimeError, match="LLM_API_KEY"):
+        build_provider()
+    with pytest.raises(RuntimeError):
+        validate_llm_config()
+
+
+def test_unknown_provider_is_rejected(monkeypatch):
+    configure(monkeypatch, provider="poe")
+    with pytest.raises(RuntimeError, match="Unknown LLM_PROVIDER"):
+        validate_llm_config()
+
+
+def test_mock_is_for_development_only_and_refused_in_production(monkeypatch):
+    configure(monkeypatch, provider="mock", key=None, secure=False)
     assert isinstance(build_provider(), MockProvider)
+    configure(monkeypatch, provider="mock", key=None, secure=True)
+    with pytest.raises(RuntimeError, match="not allowed in production"):
+        validate_llm_config()
 
 
-# ------------------------------------------------------------------ opt-in: real Poe
+# ------------------------------------------------------------------ opt-in: real provider
 @pytest.mark.live
-async def test_live_poe_streams_a_real_answer():
+async def test_live_provider_streams_a_real_answer():
     import os
 
-    key = os.environ.get("POE_API_KEY")
+    key = os.environ.get("LLM_API_KEY")
     if not key:
-        pytest.skip("POE_API_KEY not set")
-    p = PoeProvider(api_key=key, model=os.environ.get("POE_MODEL", "claude-sonnet-5.5"), timeout_s=60)
+        pytest.skip("LLM_API_KEY not set")
+    p = OpenAICompatProvider(
+        api_key=key,
+        base_url=os.environ.get("LLM_BASE_URL", settings.llm_base_url),
+        model=os.environ.get("LLM_MODEL", settings.llm_model),
+        timeout_s=60,
+    )
     events = await collect(p, [ChatMessage("user", "Reply with exactly the word: pong")], temperature=0)
     text = "".join(e.text for e in events if isinstance(e, TextDelta))
     assert "pong" in text.lower()
