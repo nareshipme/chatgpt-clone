@@ -1,6 +1,11 @@
 """Password hashing and access-token helpers. No database or HTTP code lives here."""
+from datetime import datetime, timedelta, timezone
+
+import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
+
+from app.config import settings
 
 # Argon2id with the library's default (OWASP-aligned) cost parameters.
 _hasher = PasswordHasher()
@@ -25,12 +30,6 @@ def password_needs_rehash(password_hash: str) -> bool:
 
 
 # ---------------------------------------------------------------- access tokens
-from datetime import datetime, timedelta, timezone  # noqa: E402
-
-import jwt  # noqa: E402
-
-from app.config import settings  # noqa: E402
-
 ACCESS_TOKEN_TYPE = "access"
 
 
