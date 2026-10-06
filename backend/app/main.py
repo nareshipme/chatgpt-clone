@@ -5,7 +5,7 @@ from app.api import auth, conversations, health, me
 from app.config import settings
 from app.errors import NoStoreMiddleware, RequestIdMiddleware, register_error_handlers
 
-app = FastAPI(title="ChatGPT Clone API", version="0.0.1")
+app = FastAPI(title="Tessera Chat API", version="0.0.1")
 
 app.add_middleware(
     CORSMiddleware,
