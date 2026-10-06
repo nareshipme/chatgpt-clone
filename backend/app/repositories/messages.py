@@ -1,5 +1,6 @@
 """Message queries. Reads join through conversations so they are always scoped to the owning user."""
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,3 +43,23 @@ async def get_owned(session: AsyncSession, user_id: uuid.UUID, message_id: uuid.
         .join(Conversation, Conversation.id == Message.conversation_id)
         .where(Message.id == message_id, Conversation.user_id == user_id)
     )
+
+
+async def has_active_stream(session: AsyncSession, conversation_id: uuid.UUID, *, max_age: timedelta) -> bool:
+    """True if an assistant reply is currently streaming. Rows older than max_age are treated as abandoned
+    (a server restart can leave a row stuck in 'streaming'); they must not block the conversation forever."""
+    cutoff = datetime.now(timezone.utc) - max_age
+    found = await session.scalar(
+        select(Message.id)
+        .where(
+            Message.conversation_id == conversation_id,
+            Message.status == "streaming",
+            Message.created_at > cutoff,
+        )
+        .limit(1)
+    )
+    return found is not None
+
+
+async def has_any(session: AsyncSession, conversation_id: uuid.UUID) -> bool:
+    return (await session.scalar(select(Message.id).where(Message.conversation_id == conversation_id).limit(1))) is not None
