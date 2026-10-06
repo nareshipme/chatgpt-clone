@@ -85,12 +85,31 @@ export interface ActionsPart {
 /** A message is a list of typed parts. Mirrors the server's validated schema. */
 export type MessagePart = TextPart | TablePart | ChartPart | ImagePart | ActionsPart;
 
+/** Progress of a tool the assistant is running (from the `tool` stream event). */
+export interface ToolEvent {
+  id: string;
+  name: string;
+  status: "running" | "done" | "error";
+  message?: string | null;
+}
+
+export interface Provenance {
+  tool: string;
+  source: string;
+  as_of: string;
+  confidence: "high" | "medium" | "low";
+  assumptions: string[];
+  inputs: Record<string, unknown>;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
   role: "user" | "assistant" | "system";
   parts: MessagePart[];
   status: "streaming" | "complete" | "interrupted" | "error";
+  /** Server-side facts about how the answer was made, e.g. which tools were used. */
+  meta?: { provenance?: Provenance[] } | null;
   created_at: string;
 }
 

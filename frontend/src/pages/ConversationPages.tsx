@@ -80,7 +80,7 @@ function ChatPane({ conversationId }: { conversationId: string }) {
           {chat.live && (
             <>
               <MessageBubble role="user" text={chat.live.userText} />
-              <MessageBubble role="assistant" parts={chat.live.parts} live />
+              <MessageBubble role="assistant" parts={chat.live.parts} tools={chat.live.tools} live />
             </>
           )}
         </Container>
