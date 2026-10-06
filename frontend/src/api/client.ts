@@ -92,3 +92,36 @@ export async function api<T>(path: string, { method = "GET", body, auth = true }
   if (!res.ok) throw await parseError(res);
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
+
+/**
+ * POST that returns the raw Response so the caller can read a streaming body (Server-Sent Events).
+ * Same auth behaviour as api(): attach the token, refresh once on 401 and retry. Non-2xx responses are
+ * the server's JSON errors (404, 409, 422...) and throw an ApiError before any stream starts.
+ */
+export async function apiStream(path: string, { body, signal }: { body: unknown; signal?: AbortSignal }): Promise<Response> {
+  const send = () =>
+    fetch(`${BASE}${path}`, {
+      method: "POST",
+      credentials: "same-origin",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+  let res = await send();
+  if (res.status === 401) {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      res = await send();
+    } else {
+      accessToken = null;
+      onSessionExpired?.();
+    }
+  }
+  if (!res.ok) throw await parseError(res);
+  return res;
+}
