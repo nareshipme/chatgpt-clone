@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.vite/
+pgdata/
+.DS_Store
+
+# Company assignment brief (keep local, do not publish)
+docs/assignment.pdf

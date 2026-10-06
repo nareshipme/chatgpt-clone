@@ -1,0 +1,45 @@
+﻿Name,Slice,Epic,Priority,Status,Est hours,Type,Acceptance,BMAD skill
+"Repo, Compose and FastAPI/React skeletons",S0,Foundation,Must,Done,3,Core,docker compose up shows health OK,bmad-build
+"Railway deploy: api, web, Postgres, Redis",S0,Foundation,Must,Done,1,Core,Live URL serves page; /health db+redis ok,bmad-build
+SSE smoke test through Nginx and Railway,S0,Foundation,Must,Done,0.5,Core,Ticks arrive 1/sec on live URL,bmad-build
+"CLAUDE.md, .env.example, BMAD installed",S0,Foundation,Must,Done,0.5,Core,Agents read plan; no secrets in git,bmad-project-context
+Poe key + JWT secret set in Railway variables,S0,Foundation,Must,Done,0.2,Core,Variables present on api service,-
+GitHub repo + Railway autodeploy from main,S0,Foundation,Must,To do,0.5,Core,Push to main redeploys api and web,-
+Pre-deploy migration step (alembic upgrade head),S0,Foundation,Must,To do,0.5,Backend bonus,Failed migration fails the deploy,bmad-build
+User model + Alembic setup,S1,Auth,Must,To do,1.5,Core,Migration applies on empty DB,bmad-build
+"Register and login (argon2, JWT access token)",S1,Auth,Must,To do,2,Core,"201 on register, token on login, generic errors",bmad-build
+"Refresh rotation, logout and revocation",S1,Auth,Must,To do,1.5,Core,"httpOnly cookie, rotated, revoked on logout",bmad-build
+Login and register UI + auth gate,S1,Auth,Must,To do,2,Core,Protected routes redirect to login,bmad-build
+Ownership isolation tests,S1,Auth,Must,To do,1,Core,User A cannot read user B data (404),bmad-qa-generate-e2e-tests
+Conversations CRUD API,S2,Conversations,Must,To do,2,Core,"Create, rename, delete, list with pagination",bmad-build
+Sidebar with conversation list and new chat,S2,Conversations,Must,To do,2,Core,Create/rename/delete from UI,bmad-build
+LLMProvider interface + MockProvider,S3,Streaming chat,Must,To do,2,Core,Deterministic stream in tests,bmad-build
+SSE message endpoint + persistence,S3,Streaming chat,Must,To do,4,Core,Tokens stream; message saved complete/interrupted,bmad-build
+"PoeProvider (OpenAI SDK, base_url api.poe.com/v1)",S3,Streaming chat,Must,To do,2,Core,Real streamed answer; 429 and timeout handled,bmad-build
+"useStream hook, Stop button, optimistic message",S3,Streaming chat,Must,To do,3,Core,Live tokens; abort marks interrupted,bmad-build
+Message list + composer (Enter / Shift+Enter),S3,Streaming chat,Must,To do,2,Core,"Auto-scroll, jump to latest",bmad-build
+"Message parts model (text, table, chart, image, actions)",S4,Rich content,Must,To do,2,Core,Parts stored as JSON and rendered,bmad-architecture
+Markdown rendering + code syntax highlighting,S4,Rich content,Must,To do,2,Frontend bonus,"Lists, tables, highlighted code, sanitized HTML",bmad-build
+"Table, chart and image parts",S4,Rich content,Must,To do,3,Core / bonus,Demo prompt renders every part type,bmad-build
+Action buttons and choice menus (server-side proposed_actions),S4,Rich content,Must,To do,3,Core,Click posts value as next message,bmad-build
+"Tenants, roles and tenant scoping",S5,Domain pack,Should,To do,2,Domain,Tenant A cannot see tenant B,bmad-build
+"Scenario seed data (fictional SKUs, DCs, shipments)",S5,Domain pack,Should,To do,1.5,Domain,Seed command loads two tenants,bmad-build
+Tool registry with Pydantic-validated args + tool-call loop,S5,Domain pack,Should,To do,3,Domain,Invalid args return tool error; round cap enforced,bmad-build
+Persona switcher + starter prompts,S5,Domain pack,Should,To do,1.5,Domain,Persona changes prompts and chips,bmad-ux
+Why-this-answer drawer (provenance),S5,Domain pack,Should,To do,1.5,Domain,"Shows tools, args, as_of, confidence",bmad-build
+Approve action + audit log,S5,Domain pack,Should,To do,2,Domain,Approve is idempotent and audited,bmad-build
+"Settings API + dialog (theme, model, system prompt)",S6,Settings and LLM,Must,To do,2,Core,Persisted per user,bmad-build
+"Provider hardening (retries, timeouts, error events)",S6,Settings and LLM,Must,To do,1.5,Core,llm_unavailable surfaced cleanly,bmad-build
+Dark mode toggle,S7,Bonuses,Should,To do,1,Frontend bonus,Theme persists,bmad-build
+Copy message,S7,Bonuses,Should,To do,0.5,Frontend bonus,Copies plain text and markdown,bmad-build
+Conversation search and filter,S7,Bonuses,Should,To do,1.5,Frontend bonus,Search by title and text,bmad-build
+Redis cache for conversation list,S7,Bonuses,Should,To do,1,Backend bonus,Invalidated on writes; fails open,bmad-build
+"Rate limiting (login, messages) and max output cap",S7,Bonuses,Must,To do,1,Security,429 with retry info; protects Poe key,bmad-build
+Export conversation (md/json),S7,Bonuses,Could,To do,1,Frontend bonus,File download,bmad-build
+"Error, empty and loading states; responsive layout",S8,Hardening,Must,To do,3,Core,"Mobile drawer, skeletons, toasts",bmad-ux
+README + ARCHITECTURE.md + ADRs + assumptions,S8,Hardening,Must,To do,3,Docs,Setup works from README alone,bmad-spec
+Screenshots or screen recording,S8,Hardening,Should,To do,1,Docs,Attached to README,-
+Fresh-clone test against live URL,S8,Hardening,Must,To do,1,Docs,"Register, chat, stream, search, export all pass",bmad-qa-generate-e2e-tests
+Code review pass per slice,S8,Hardening,Should,To do,2,Quality,No high findings left,bmad-code-review
+Rotate Poe key and pause/delete Railway project,S8,Hardening,Must,To do,0.3,Security,Key revoked; services stopped,-
+"Follow-up call prep (trade-offs, challenges, more time)",S8,Hardening,Should,To do,1,Docs,Talking points in PLAN.md section 9,-
