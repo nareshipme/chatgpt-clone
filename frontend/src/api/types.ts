@@ -34,8 +34,48 @@ export interface TextPart {
   text: string;
 }
 
-/** Parts are a tagged union: tables, charts, images and action buttons are added here later. */
-export type MessagePart = TextPart;
+export interface TablePart {
+  type: "table";
+  title?: string | null;
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+}
+
+export interface ChartSeries {
+  key: string;
+  label: string;
+}
+
+export interface ChartPart {
+  type: "chart";
+  kind: "bar" | "line";
+  title?: string | null;
+  x: string;
+  series: ChartSeries[];
+  data: Record<string, string | number>[];
+}
+
+export interface ImagePart {
+  type: "image";
+  url: string;
+  alt: string;
+}
+
+export interface ActionOption {
+  id: string;
+  label: string;
+  /** Sent as the user's next message when this option is chosen. */
+  value: string;
+}
+
+export interface ActionsPart {
+  type: "actions";
+  prompt?: string | null;
+  options: ActionOption[];
+}
+
+/** A message is a list of typed parts. Mirrors the server's validated schema. */
+export type MessagePart = TextPart | TablePart | ChartPart | ImagePart | ActionsPart;
 
 export interface Message {
   id: string;
