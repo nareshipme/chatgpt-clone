@@ -13,10 +13,14 @@ function Loading() {
 
 /** Protected routes: wait for the silent session restore, then redirect anonymous users to /login. */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { status } = useAuth();
+  const { status, signedOut } = useAuth();
   const location = useLocation();
   if (status === "loading") return <Loading />;
-  if (status === "anonymous") return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (status === "anonymous") {
+    // Remember where the user was going so login can return them there, but not after a deliberate sign-out:
+    // the next person to sign in on this browser must not be sent to the previous user's page.
+    return <Navigate to="/login" replace state={signedOut ? undefined : { from: location.pathname }} />;
+  }
   return <>{children}</>;
 }
 
