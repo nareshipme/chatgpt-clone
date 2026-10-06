@@ -1,5 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import {
   createConversation,
   deleteConversation,
@@ -9,16 +10,23 @@ import {
 } from "../api/conversations";
 
 // One key factory so every cache read, write and invalidation agrees on the names.
+// Every key starts with the user id: even if a cache clear were ever missed, one user's cached data
+// could not be served to another user.
 export const conversationKeys = {
-  all: ["conversations"] as const,
-  list: (q: string) => ["conversations", "list", q] as const,
-  detail: (id: string) => ["conversations", "detail", id] as const,
+  all: (userId: string) => ["conversations", userId] as const,
+  list: (userId: string, q: string) => ["conversations", userId, "list", q] as const,
+  detail: (userId: string, id: string) => ["conversations", userId, "detail", id] as const,
 };
+
+function useUserId(): string {
+  return useAuth().user?.id ?? "anonymous";
+}
 
 /** Cursor-paginated list (server keyset pagination). `fetchNextPage` loads the next 20. */
 export function useConversationList(q: string) {
+  const userId = useUserId();
   return useInfiniteQuery({
-    queryKey: conversationKeys.list(q),
+    queryKey: conversationKeys.list(userId, q),
     queryFn: ({ pageParam }) => listConversations({ q, cursor: pageParam }),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next_cursor,
@@ -28,8 +36,9 @@ export function useConversationList(q: string) {
 }
 
 export function useConversation(id: string | undefined) {
+  const userId = useUserId();
   return useQuery({
-    queryKey: conversationKeys.detail(id ?? ""),
+    queryKey: conversationKeys.detail(userId, id ?? ""),
     queryFn: () => getConversation(id!),
     enabled: !!id,
   });
@@ -37,27 +46,30 @@ export function useConversation(id: string | undefined) {
 
 export function useCreateConversation() {
   const qc = useQueryClient();
+  const userId = useUserId();
   return useMutation({
     mutationFn: (title?: string) => createConversation(title),
-    onSuccess: () => qc.invalidateQueries({ queryKey: conversationKeys.all }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: conversationKeys.all(userId) }),
   });
 }
 
 export function useRenameConversation() {
   const qc = useQueryClient();
+  const userId = useUserId();
   return useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) => renameConversation(id, title),
-    onSuccess: () => qc.invalidateQueries({ queryKey: conversationKeys.all }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: conversationKeys.all(userId) }),
   });
 }
 
 export function useDeleteConversation() {
   const qc = useQueryClient();
+  const userId = useUserId();
   return useMutation({
     mutationFn: (id: string) => deleteConversation(id),
     onSuccess: (_data, id) => {
-      qc.removeQueries({ queryKey: conversationKeys.detail(id) });
-      return qc.invalidateQueries({ queryKey: conversationKeys.all });
+      qc.removeQueries({ queryKey: conversationKeys.detail(userId, id) });
+      return qc.invalidateQueries({ queryKey: conversationKeys.all(userId) });
     },
   });
 }

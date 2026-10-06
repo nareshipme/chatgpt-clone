@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -14,7 +15,9 @@ const session = { access_token: "tok", token_type: "bearer", user };
 const noSession = () => jsonResponse(401, errorBody("invalid_refresh_token", "none"));
 
 function renderApp(initial: string) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
+    <QueryClientProvider client={client}>
     <MemoryRouter initialEntries={[initial]}>
       <AuthProvider>
         <Routes>
@@ -23,7 +26,8 @@ function renderApp(initial: string) {
           <Route path="/" element={<RequireAuth><EmptyChatPage /></RequireAuth>} />
         </Routes>
       </AuthProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
