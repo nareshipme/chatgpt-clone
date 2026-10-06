@@ -4,10 +4,10 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.db.session import get_db
+from app.db.session import get_db, get_sessionmaker
 from app.main import app
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -47,6 +47,8 @@ async def client(migrated_db, monkeypatch):
             yield session
 
     app.dependency_overrides[get_db] = _get_db
+    # Streaming responses open their own sessions (they outlive the request); point them at the same database.
+    app.dependency_overrides[get_sessionmaker] = lambda: async_sessionmaker(engine, expire_on_commit=False)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()

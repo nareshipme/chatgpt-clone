@@ -20,6 +20,14 @@ def get_engine() -> AsyncEngine:
     return _engine
 
 
+def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """FastAPI dependency for code that outlives the request (a streaming response opens its own sessions).
+    Tests override it to point at the throwaway database."""
+    get_engine()
+    assert _sessionmaker is not None
+    return _sessionmaker
+
+
 async def get_db() -> AsyncIterator[AsyncSession]:
     """FastAPI dependency: one session per request, rolled back on error."""
     get_engine()
