@@ -11,7 +11,7 @@ interface AuthValue {
   /** True after the user chose to sign out (not after a session expiry). Used to forget the return-to page. */
   signedOut: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName: string) => Promise<void>;
+  register: (email: string, password: string, displayName: string, tenantId?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -65,10 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const register = useCallback(
-    async (email: string, password: string, displayName: string) => {
+    async (email: string, password: string, displayName: string, tenantId?: string) => {
       await api("/auth/register", {
         method: "POST",
-        body: { email, password, display_name: displayName },
+        body: { email, password, display_name: displayName, ...(tenantId ? { tenant_id: tenantId } : {}) },
         auth: false,
       });
       await login(email, password);

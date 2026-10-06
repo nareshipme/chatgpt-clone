@@ -32,6 +32,10 @@ class NotFoundError(AppError):
     status_code, code, default_message = 404, "not_found", "Not found"
 
 
+class UnprocessableError(AppError):
+    status_code, code, default_message = 422, "unprocessable", "The request could not be processed"
+
+
 class ConflictError(AppError):
     status_code, code, default_message = 409, "conflict", "Conflict"
 

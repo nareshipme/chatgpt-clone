@@ -9,6 +9,8 @@ class RegisterRequest(BaseModel):
     # Length over complexity rules (NIST guidance); the upper bound stops absurdly long inputs being hashed.
     password: str = Field(min_length=10, max_length=128)
     display_name: str = Field(min_length=1, max_length=100)
+    # Demo only: which fictional company to join. A real product would assign this from an invitation or SSO.
+    tenant_id: str = Field(default="northwind", min_length=1, max_length=40)
 
     @field_validator("display_name")
     @classmethod
@@ -32,6 +34,8 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     display_name: str
+    tenant_id: str
+    role: str
     created_at: datetime
 
 

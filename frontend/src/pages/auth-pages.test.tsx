@@ -5,12 +5,16 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthContext";
 import { PublicOnly, RequireAuth } from "../auth/RequireAuth";
-import { errorBody, jsonResponse, stubFetch } from "../test/helpers";
+import { calls, errorBody, jsonResponse, stubFetch } from "../test/helpers";
 import { EmptyChatPage } from "./ConversationPages";
 import LoginPage from "./LoginPage";
 import RegisterPage from "./RegisterPage";
 
-const user = { id: "1", email: "ada@example.com", display_name: "Ada", created_at: "" };
+const user = { id: "1", email: "ada@example.com", display_name: "Ada", tenant_id: "northwind", role: "planner", created_at: "" };
+const tenants = [
+  { id: "northwind", name: "Northwind Grocers", industry: "Grocery retail" },
+  { id: "harbor", name: "Harbor Freight Lines", industry: "Regional logistics" },
+];
 const session = { access_token: "tok", token_type: "bearer", user };
 const noSession = () => jsonResponse(401, errorBody("invalid_refresh_token", "none"));
 
@@ -114,5 +118,40 @@ describe("auth pages", () => {
     await userEvent.type(screen.getByLabelText(/password/i), "a-long-enough-pw");
     await userEvent.click(screen.getByRole("button", { name: /create account/i }));
     await waitFor(() => expect(screen.getByText(/already exists/i)).toBeInTheDocument());
+  });
+
+  it("lets you pick a demo company and sends it with the registration", async () => {
+    const mock = stubFetch({
+      "POST /auth/refresh": noSession,
+      "GET /tenants": () => jsonResponse(200, tenants),
+      "POST /auth/register": () => jsonResponse(201, user),
+      "POST /auth/login": () => jsonResponse(200, { ...session, user: { ...user, tenant_id: "harbor" } }),
+    });
+    renderApp("/register");
+    await userEvent.type(await screen.findByLabelText(/display name/i), "Ada");
+    await userEvent.type(screen.getByLabelText(/email/i), "ada@example.com");
+    await userEvent.type(screen.getByLabelText(/password/i), "a-long-enough-pw");
+    await userEvent.click(await screen.findByLabelText(/demo company/i));
+    await userEvent.click(await screen.findByRole("option", { name: /Harbor Freight Lines/ }));
+    await userEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await waitFor(() => expect(calls(mock, "POST /auth/register")).toHaveLength(1));
+    expect(JSON.parse(calls(mock, "POST /auth/register")[0][1]!.body as string).tenant_id).toBe("harbor");
+  });
+
+  it("still lets you register when the company list cannot be loaded (server defaults it)", async () => {
+    const mock = stubFetch({
+      "POST /auth/refresh": noSession,
+      "GET /tenants": () => jsonResponse(500, errorBody("internal_error", "boom")),
+      "POST /auth/register": () => jsonResponse(201, user),
+      "POST /auth/login": () => jsonResponse(200, session),
+    });
+    renderApp("/register");
+    await userEvent.type(await screen.findByLabelText(/display name/i), "Ada");
+    await userEvent.type(screen.getByLabelText(/email/i), "ada@example.com");
+    await userEvent.type(screen.getByLabelText(/password/i), "a-long-enough-pw");
+    expect(screen.queryByLabelText(/demo company/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await waitFor(() => expect(calls(mock, "POST /auth/register")).toHaveLength(1));
+    expect(JSON.parse(calls(mock, "POST /auth/register")[0][1]!.body as string)).not.toHaveProperty("tenant_id");
   });
 });

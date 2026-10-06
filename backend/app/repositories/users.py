@@ -14,9 +14,11 @@ async def get_by_id(session: AsyncSession, user_id: uuid.UUID) -> User | None:
     return await session.get(User, user_id)
 
 
-async def add(session: AsyncSession, *, email: str, password_hash: str, display_name: str) -> User:
+async def add(
+    session: AsyncSession, *, email: str, password_hash: str, display_name: str, tenant_id: str = "northwind"
+) -> User:
     """Stage a new user and flush so defaults (id, timestamps) are populated. The caller commits."""
-    user = User(email=email, password_hash=password_hash, display_name=display_name)
+    user = User(email=email, password_hash=password_hash, display_name=display_name, tenant_id=tenant_id)
     session.add(user)
     await session.flush()
     return user

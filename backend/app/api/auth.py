@@ -36,7 +36,7 @@ def _clear_refresh_cookie(response: Response) -> None:
 @router.post("/register", response_model=UserOut, status_code=201)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     return await auth_service.register(
-        db, email=body.email, password=body.password, display_name=body.display_name
+        db, email=body.email, password=body.password, display_name=body.display_name, tenant_id=body.tenant_id
     )
 
 
