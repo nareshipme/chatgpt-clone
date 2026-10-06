@@ -44,3 +44,14 @@ def test_conversations_table_is_indexed_for_the_per_user_listing(migrated_db):
     assert ["user_id", "updated_at"] in index_cols
     fk = insp.get_foreign_keys("conversations")[0]
     assert fk["referred_table"] == "users" and fk["options"].get("ondelete") == "CASCADE"
+
+
+def test_messages_table_has_json_parts_checks_and_a_conversation_index(migrated_db):
+    insp = _inspect(migrated_db)
+    cols = {c["name"] for c in insp.get_columns("messages")}
+    assert cols == {"id", "conversation_id", "role", "parts", "status", "tokens_in", "tokens_out", "created_at"}
+    assert ["conversation_id", "created_at"] in [i["column_names"] for i in insp.get_indexes("messages")]
+    checks = {c["name"] for c in insp.get_check_constraints("messages")}
+    assert {"ck_messages_role_valid", "ck_messages_status_valid"} <= checks
+    fk = insp.get_foreign_keys("messages")[0]
+    assert fk["referred_table"] == "conversations" and fk["options"].get("ondelete") == "CASCADE"
