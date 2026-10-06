@@ -25,4 +25,4 @@ jobs:
       - name: Deploy web
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up ./frontend --path-as-root --service web --ci
+        run: railway up --service web --ci
