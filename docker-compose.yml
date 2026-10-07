@@ -1,3 +1,9 @@
+# Local stack: Postgres, Redis, the API and the web app (Nginx serving the React build and proxying /api).
+#
+#   docker compose up --build        then open http://localhost:3000
+#
+# Works with no configuration: the assistant answers with the built-in mock provider. To use a real model, copy
+# .env.example to .env and set LLM_PROVIDER=openai_compatible and LLM_API_KEY (compose reads .env automatically).
 services:
   db:
     image: postgres:16-alpine
@@ -28,6 +34,13 @@ services:
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: http://localhost:3000
       PORT: "8000"
+      # Local development defaults. Production sets real values (see README: Deploy).
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-do-not-use-in-production-0123456789abcdef}
+      COOKIE_SECURE: "false" # the refresh cookie must work over plain http://localhost
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_MODEL: ${LLM_MODEL:-poolside/laguna-s-2.1:free}
     depends_on:
       db:
         condition: service_healthy

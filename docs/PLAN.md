@@ -1,11 +1,13 @@
 # ChatGPT Clone: Plan, HLD and LLD
 
+> **Status:** this is the original planning document, kept for history. The current design, decisions, assumptions and limitations are in **`docs/ARCHITECTURE.md`**; where the two differ, that file is right.
+
 Assignment: full stack ChatGPT clone, **48 hours**, public GitHub repo. See `docs/assignment.pdf`.
 Owner: Naresh Ghanate. Agents: BMAD (installed in `_bmad/`, skills in `.claude/skills/`).
 
 > **Deployment:** everything on **Railway** (Section 14); no Vercel.
 >
-> **Real LLM:** the Poe API is the default LLM backend (**Section 13**; it supersedes any "mock by default" wording below). Keep the key in `.env` only.
+> **Real LLM (updated):** the Poe plan in Section 13 was superseded. Poe needs a paid subscription for API access, so production uses any OpenAI-compatible API (currently OpenRouter free models) with **no silent fallback to the mock**. See `docs/ARCHITECTURE.md` ADR-6.
 >
 > **Blue Yonder customization:** see **Section 12** (Supply Chain Copilot domain pack: personas, tool-calling over fictional data, approval + audit, tenant scoping). Section 12.8 supersedes the S4-S8 rows in Section 5.
 
