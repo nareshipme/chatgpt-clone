@@ -15,7 +15,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Tessera Chat API", version="0.0.1", lifespan=lifespan)
+app = FastAPI(title="BYond Chat API", version="0.0.1", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
