@@ -84,7 +84,7 @@ sometimes rate-limited; the API retries the same model with backoff and the UI o
 
 ## Run without Docker
 
-You need Python 3.12, Node 22 and (optionally) PostgreSQL. SQLite works for local development.
+You need Python 3.11 or newer, Node 22 and (optionally) PostgreSQL. SQLite works for local development.
 
 ```bash
 # backend
