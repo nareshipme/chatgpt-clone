@@ -1,6 +1,6 @@
 # Architecture and design decisions
 
-This document explains how Tessera Chat is built and why. The README covers setup; `docs/PLAN.md` is the original
+This document explains how BYond Chat is built and why. The README covers setup; `docs/PLAN.md` is the original
 planning document (kept for history: where it disagrees with this file, this file is right).
 
 ## 1. What the system is

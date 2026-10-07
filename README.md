@@ -1,4 +1,4 @@
-# Tessera Chat
+# BYond Chat
 
 A full stack, ChatGPT-style conversational app with a **Supply Chain Copilot** layer: streaming answers from a real
 language model, rich replies (Markdown, code, tables, charts, choice buttons), and tools that answer planners' questions
