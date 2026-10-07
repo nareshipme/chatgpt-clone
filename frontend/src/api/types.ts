@@ -4,12 +4,21 @@ export interface Tenant {
   industry: string;
 }
 
+export interface Persona {
+  id: string;
+  name: string;
+  description: string;
+  starters: string[];
+  selected: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
   display_name: string;
   tenant_id: string;
   role: "planner" | "manager" | "viewer";
+  persona?: string | null;
   created_at: string;
 }
 
