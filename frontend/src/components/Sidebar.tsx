@@ -25,6 +25,8 @@ import { ApiError } from "../api/client";
 import type { Conversation } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useTenants } from "../hooks/useTenants";
+import { BrandMark } from "../app/BrandMark";
+import { BRAND } from "../app/brand";
 import { SettingsDialog } from "./SettingsDialog";
 import {
   useConversationList,
@@ -74,6 +76,12 @@ export function Sidebar({ activeId, onNavigate }: Props) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <Box sx={{ px: 2, pt: 2.5, pb: 0.5, display: "flex", alignItems: "center", gap: 1.25 }}>
+        <BrandMark size={26} />
+        <Typography component="span" sx={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em" }}>
+          {BRAND}
+        </Typography>
+      </Box>
       <Box sx={{ p: 2 }}>
         <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={newChat} disabled={create.isPending}>
           New chat

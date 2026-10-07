@@ -4,6 +4,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { Box, Button, Chip, CircularProgress, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import { useState } from "react";
 import type { MessagePart, Provenance, ToolEvent } from "../api/types";
+import { COLORS } from "../app/theme";
 import { copyText } from "../lib/clipboard";
 import { partsToPlainText } from "../lib/parts";
 import { toolLabel } from "../lib/tools";
@@ -58,8 +59,10 @@ export function MessageBubble({ role, parts, text = "", status, live, tools = []
           py: 1.5,
           maxWidth: "85%",
           minWidth: 0,
-          bgcolor: isUser ? "primary.main" : "action.hover",
-          color: isUser ? "primary.contrastText" : "text.primary",
+          bgcolor: isUser ? COLORS.navy : COLORS.grey50,
+          border: isUser ? 0 : 1,
+          borderColor: COLORS.grey100,
+          color: isUser ? "#fff" : "text.primary",
           borderRadius: 3,
           "&:hover .copy-message, & .copy-message:focus-visible": { opacity: 1 },
         }}

@@ -2,7 +2,7 @@ import { Box, Table, TableBody, TableCell, TableHead, TableRow, Typography } fro
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ChartPart } from "../../api/types";
 
-const COLORS = ["#3a5876", "#e07a5f", "#81b29a", "#f2cc8f", "#6d597a", "#b56576"];
+import { CHART_COLORS as COLORS } from "../../app/theme";
 
 /** A bar or line chart plus a "View data" table, so the numbers are readable by screen readers and copyable. */
 export default function ChartView({ part }: { part: ChartPart }) {
