@@ -80,3 +80,43 @@ async def test_the_chat_uses_the_users_persona_in_the_system_prompt(client, regi
     await client.patch("/api/v1/me/settings", json={"persona": "dc_manager"}, headers=a["headers"])
     await _send(client, a["headers"], c["id"], "hi again")
     assert "distribution centres" in seen[-1] and "demand planner" not in seen[-1]
+
+
+def test_the_prompt_lists_the_ids_the_tools_expect_for_each_company_and_never_the_others():
+    nw = copilot_prompt("Northwind Grocers", "Grocery retail", date(2026, 10, 7), "", "northwind")
+    hb = copilot_prompt("Harbor Freight Lines", "Regional logistics", date(2026, 10, 7), "", "harbor")
+    assert "SKU-1007 = Frozen Pizza" in nw and "DC-5 = West DC" in nw and "Chicago-Dallas" not in nw
+    assert "Chicago-Dallas" in hb and "SKU-1007" not in hb and "DC-5" not in hb
+    assert "SKU-1007" not in copilot_prompt("X", "Y", date(2026, 10, 7))  # no tenant, no catalog
+
+
+def test_every_id_in_the_catalog_is_accepted_by_the_tools():
+    from app.domain import scenario as sc
+    from app.domain.tools import run_tool
+
+    for sku in sc.SKUS:
+        assert run_tool("northwind", "get_demand_forecast", {"sku": sku}, today=date(2026, 10, 7)).data["sku"] == sku
+    for lane in sc.LANES:
+        assert run_tool("harbor", "get_lane_cost_carbon", {"lane": lane}, today=date(2026, 10, 7)).data["lane"] == lane
+
+
+async def test_the_chat_gives_the_model_the_catalog_of_the_users_company(client, register_user):
+    from app.llm.factory import get_llm_provider
+    from app.llm.mock import MockProvider
+    from app.main import app
+    from tests.test_chat_stream import _conversation, _send
+
+    seen = []
+
+    class Recorder(MockProvider):
+        async def stream(self, messages, *, system=None, **kw):
+            seen.append(system)
+            async for e in super().stream(messages, system=system, **kw):
+                yield e
+
+    app.dependency_overrides[get_llm_provider] = lambda: Recorder()
+    for tenant, email, expect, absent in (("northwind", "n@x.com", "SKU-1007 = Frozen Pizza", "Seattle-Portland"), ("harbor", "h@x.com", "Seattle-Portland", "SKU-1007")):
+        u = await register_user(email, tenant_id=tenant)
+        c = await _conversation(client, u["headers"])
+        await _send(client, u["headers"], c["id"], "hi")
+        assert expect in seen[-1] and absent not in seen[-1]

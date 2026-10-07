@@ -131,6 +131,7 @@ async def prepare_turn(
             system_prompt=copilot_prompt(
                 company, industry, utc_today(),
                 persona.focus if (persona := effective_persona(user.persona if user else None, tenant.id if tenant else "")) else "",
+                tenant.id if tenant else "",
             ),
         )
 

@@ -1,9 +1,25 @@
 """The system prompt for the Supply Chain Copilot. The trust rules here are the product's safety contract."""
 from datetime import date
 
+from app.domain import scenario as sc
 
-def copilot_prompt(company: str, industry: str, today: date, persona_focus: str = "") -> str:
+
+def catalog_for(tenant_id: str) -> str:
+    """The ids the tools expect, so the model can map names the user says ("frozen pizza", "the East DC") to them."""
+    if tenant_id == "northwind":
+        skus = "; ".join(f"{sku} = {info['name']}" for sku, info in sc.SKUS.items())
+        dcs = "; ".join(f"{dc} = {name}" for dc, name in sc.LOCATIONS.items())
+        return f"Products (SKU ids): {skus}.\nDistribution centres: {dcs}."
+    if tenant_id == "harbor":
+        return "Lanes: " + ", ".join(sc.LANES) + ". Shipment ids look like SHP-4101."
+    return ""
+
+
+def copilot_prompt(company: str, industry: str, today: date, persona_focus: str = "", tenant_id: str = "") -> str:
     focus = f"\n\nWho you are helping: {persona_focus}" if persona_focus else ""
+    catalog = catalog_for(tenant_id)
+    if catalog:
+        focus += f"\n\nWhat you can look up (use these exact ids when calling tools, and map product or place names the user says to them):\n{catalog}"
     return f"""You are Supply Chain Copilot, an assistant for planners at {company} ({industry}). Today is {today.isoformat()}.
 
 How you work:
