@@ -6,7 +6,9 @@ import { useAuth } from "../auth/AuthContext";
 import { Composer } from "../components/Composer";
 import { MessageBubble } from "../components/MessageBubble";
 import { useChat } from "../hooks/useChat";
+import { COLORS } from "../app/theme";
 import { useConversation, useCreateConversation } from "../hooks/useConversations";
+import { useTenants } from "../hooks/useTenants";
 import { usePersonas } from "../hooks/usePersonas";
 import { StarterChips } from "../components/StarterChips";
 import { textOf } from "../lib/parts";
@@ -24,15 +26,24 @@ export function EmptyChatPage() {
     navigate(`/c/${created.id}`, { state: { starter: text } }); // the chat sends it as its first message
   }
 
+  const company = useTenants().data?.find((t) => t.id === user?.tenant_id);
+
   return (
-    <Container sx={{ py: 8 }}>
-      <Typography variant="h4" gutterBottom>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 8 }, px: { xs: 2, md: 6 } }}>
+      <Typography variant="h3" component="h1" sx={{ fontWeight: 400, letterSpacing: "-0.02em", mb: 1.5 }}>
         Hello, {user?.display_name}
       </Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Pick a conversation from the sidebar, or start a new chat.
+      <Typography sx={{ fontSize: 18, maxWidth: 640, mb: 4 }} color="text.secondary">
+        {company
+          ? `Ask about ${company.name}${company.name.endsWith("s") ? "'" : "'s"} supply chain. Answers use your company's data and show where every number came from.`
+          : "Pick a conversation from the sidebar, or start a new chat."}
       </Typography>
-      <StarterChips starters={starters} onPick={(t) => void start(t)} disabled={create.isPending} />
+      {starters.length > 0 && (
+        <Typography variant="overline" component="p" sx={{ fontWeight: 700, letterSpacing: 1.2, mb: 1, color: COLORS.burgundy }}>
+          Try asking
+        </Typography>
+      )}
+      <StarterChips variant="cards" starters={starters} onPick={(t) => void start(t)} disabled={create.isPending} />
     </Container>
   );
 }
