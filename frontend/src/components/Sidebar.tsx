@@ -25,6 +25,7 @@ import { ApiError } from "../api/client";
 import type { Conversation } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { useTenants } from "../hooks/useTenants";
+import { SettingsDialog } from "./SettingsDialog";
 import {
   useConversationList,
   useCreateConversation,
@@ -56,6 +57,7 @@ export function Sidebar({ activeId, onNavigate }: Props) {
   const [menu, setMenu] = useState<{ anchor: HTMLElement; conversation: Conversation } | null>(null);
   const [renaming, setRenaming] = useState<Conversation | null>(null);
   const [deleting, setDeleting] = useState<Conversation | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -162,10 +164,15 @@ export function Sidebar({ activeId, onNavigate }: Props) {
             </Typography>
           )}
         </Box>
+        <Button size="small" onClick={() => setSettingsOpen(true)}>
+          Settings
+        </Button>
         <Button size="small" onClick={() => void logout()}>
           Sign out
         </Button>
       </Box>
+
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <Menu anchorEl={menu?.anchor} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem

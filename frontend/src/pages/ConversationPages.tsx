@@ -1,23 +1,38 @@
 import { Alert, Box, Button, Container, Skeleton, Typography } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Composer } from "../components/Composer";
 import { MessageBubble } from "../components/MessageBubble";
 import { useChat } from "../hooks/useChat";
-import { useConversation } from "../hooks/useConversations";
+import { useConversation, useCreateConversation } from "../hooks/useConversations";
+import { usePersonas } from "../hooks/usePersonas";
+import { StarterChips } from "../components/StarterChips";
 import { textOf } from "../lib/parts";
 
 /** Shown at "/" when no conversation is selected. */
 export function EmptyChatPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const create = useCreateConversation();
+  const personas = usePersonas();
+  const starters = personas.data?.find((p) => p.selected)?.starters ?? [];
+
+  async function start(text: string) {
+    const created = await create.mutateAsync(undefined);
+    navigate(`/c/${created.id}`, { state: { starter: text } }); // the chat sends it as its first message
+  }
+
   return (
     <Container sx={{ py: 8 }}>
       <Typography variant="h4" gutterBottom>
         Hello, {user?.display_name}
       </Typography>
-      <Typography color="text.secondary">Pick a conversation from the sidebar, or start a new chat.</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>
+        Pick a conversation from the sidebar, or start a new chat.
+      </Typography>
+      <StarterChips starters={starters} onPick={(t) => void start(t)} disabled={create.isPending} />
     </Container>
   );
 }
@@ -28,6 +43,22 @@ function ChatPane({ conversationId }: { conversationId: string }) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true); // follow new text only while the user is already at the bottom
   const [showJump, setShowJump] = useState(false);
+  const personas = usePersonas();
+  const starters = personas.data?.find((p) => p.selected)?.starters ?? [];
+  const location = useLocation();
+  const navigate = useNavigate();
+  const sentStarter = useRef(false);
+
+  // A starter picked on the home page arrives as router state: send it once, then drop it so a reload does not resend.
+  useEffect(() => {
+    const starter = (location.state as { starter?: string } | null)?.starter;
+    if (starter && !sentStarter.current) {
+      sentStarter.current = true;
+      navigate(location.pathname, { replace: true, state: null });
+      void chat.send(starter);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function onScroll() {
     const el = scroller.current!;
@@ -57,9 +88,12 @@ function ChatPane({ conversationId }: { conversationId: string }) {
           {chat.isLoading && <Skeleton variant="rounded" height={64} />}
           {chat.loadError && <Alert severity="error">Could not load this conversation&apos;s messages.</Alert>}
           {empty && (
-            <Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
-              Send a message to start the conversation.
-            </Typography>
+            <Box sx={{ mt: 4, textAlign: "center" }}>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Send a message to start the conversation.
+              </Typography>
+              <StarterChips starters={starters} onPick={(t) => void chat.send(t)} />
+            </Box>
           )}
           {chat.messages.map((m, i) => {
             const next = chat.messages[i + 1];

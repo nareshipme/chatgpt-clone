@@ -22,6 +22,8 @@ class User(Base):
     )
     # planner: can approve actions; manager: same plus audit view; viewer: read-only.
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="planner", server_default="planner")
+    # The chosen persona id, or NULL for the company's default. Validated against the catalog in the service.
+    persona: Mapped[str | None] = mapped_column(String(30), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

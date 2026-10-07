@@ -31,7 +31,12 @@ function sseResponse(init?: RequestInit) {
   };
 }
 
-function setup(opts: { history?: Message[]; onSend?: (init?: RequestInit) => Response | Promise<Response> } = {}) {
+const personas = [
+  { id: "demand_planner", name: "Demand planner", description: "Forecast accuracy.", starters: ["Which SKUs will stock out?", "Why did the forecast change?"], selected: true },
+  { id: "dc_manager", name: "DC manager", description: "Inventory balance.", starters: ["Where is excess stock?"], selected: false },
+];
+
+function setup(opts: { history?: Message[]; initial?: string; onSend?: (init?: RequestInit) => Response | Promise<Response> } = {}) {
   let thread = opts.history ?? [];
   const mock = stubFetch({
     "POST /auth/refresh": () => jsonResponse(200, session),
@@ -39,11 +44,14 @@ function setup(opts: { history?: Message[]; onSend?: (init?: RequestInit) => Res
     "GET /conversations/c1": () => jsonResponse(200, conversation),
     "GET /conversations/c1/messages": () => jsonResponse(200, { items: thread }),
     "POST /conversations/c1/messages": (init) => opts.onSend!(init),
+    "GET /personas": () => jsonResponse(200, personas),
+    "POST /conversations": () => jsonResponse(201, conversation),
+    "PATCH /me/settings": () => jsonResponse(200, { ...session.user, persona: "dc_manager" }),
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/c/c1"]}>
+      <MemoryRouter initialEntries={[opts.initial ?? "/c/c1"]}>
         <AuthProvider>
           <Routes>
             <Route element={<ChatLayout />}>
@@ -377,5 +385,41 @@ describe("tool calls", () => {
     sse.push("tool", { id: "c9", name: "get_lane_cost_carbon", status: "error", message: "bad lane" });
     expect(await screen.findByText("Could not check: lane cost and carbon")).toBeInTheDocument();
     sse.close();
+  });
+});
+
+describe("personas", () => {
+  it("offers the active persona's starter questions in an empty chat and asks the one you click", async () => {
+    const sse = { current: undefined as unknown as ReturnType<typeof sseResponse> };
+    const { mock } = setup({ onSend: (init) => (sse.current = sseResponse(init)).response });
+    await userEvent.click(await screen.findByRole("button", { name: "Which SKUs will stock out?" }));
+    await waitFor(() => expect(calls(mock, "POST /conversations/c1/messages")).toHaveLength(1));
+    expect(JSON.parse(calls(mock, "POST /conversations/c1/messages")[0][1]!.body as string)).toEqual({ content: "Which SKUs will stock out?" });
+    expect(screen.queryByRole("group", { name: "Suggested questions" })).not.toBeInTheDocument(); // chips go once the chat has started
+    sse.current.close();
+  });
+
+  it("a starter picked on the home page creates a chat and sends it exactly once", async () => {
+    const sse = { current: undefined as unknown as ReturnType<typeof sseResponse> };
+    const { mock } = setup({ initial: "/", onSend: (init) => (sse.current = sseResponse(init)).response });
+    await userEvent.click(await screen.findByRole("button", { name: "Why did the forecast change?" }));
+    await waitFor(() => expect(calls(mock, "POST /conversations/c1/messages")).toHaveLength(1));
+    expect(calls(mock, "POST /conversations")).toHaveLength(1);
+    expect(JSON.parse(calls(mock, "POST /conversations/c1/messages")[0][1]!.body as string)).toEqual({ content: "Why did the forecast change?" });
+    sse.current.close();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(calls(mock, "POST /conversations/c1/messages")).toHaveLength(1); // not resent on re-render
+  });
+
+  it("the settings dialog saves the chosen persona", async () => {
+    const { mock } = setup();
+    await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    expect(await screen.findByRole("radio", { name: /Demand planner/ })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled(); // nothing changed yet
+    await userEvent.click(screen.getByRole("radio", { name: /DC manager/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls(mock, "PATCH /me/settings")).toHaveLength(1));
+    expect(JSON.parse(calls(mock, "PATCH /me/settings")[0][1]!.body as string)).toEqual({ persona: "dc_manager" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });

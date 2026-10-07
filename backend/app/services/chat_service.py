@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
 from app.errors import ConflictError
+from app.domain.personas import effective_persona
 from app.domain.prompt import copilot_prompt
 from app.domain.scenario import utc_today
 from app.domain.tools import ToolError, run_tool, tool_specs
@@ -124,7 +125,10 @@ async def prepare_turn(
         return Turn(
             user_message.id, assistant.id, history,
             tenant_id=tenant.id if tenant else "",
-            system_prompt=copilot_prompt(company, industry, utc_today()),
+            system_prompt=copilot_prompt(
+                company, industry, utc_today(),
+                persona.focus if (persona := effective_persona(user.persona if user else None, tenant.id if tenant else "")) else "",
+            ),
         )
 
 
