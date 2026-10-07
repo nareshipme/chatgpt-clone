@@ -54,7 +54,7 @@ describe("auth pages", () => {
   it("labels itself as a demo and never presents itself under another company's brand", async () => {
     stubFetch({ "POST /auth/refresh": noSession });
     renderApp("/login");
-    expect(await screen.findByText("Tessera Chat")).toBeInTheDocument();
+    expect(await screen.findByText("BYond Chat")).toBeInTheDocument();
     expect(screen.getByText(/demo project built for a technical assessment/i)).toBeInTheDocument();
     expect(screen.queryByText(/chatgpt/i)).not.toBeInTheDocument();
   });

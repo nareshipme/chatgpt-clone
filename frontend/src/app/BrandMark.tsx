@@ -1,7 +1,7 @@
 import { Box } from "@mui/material";
 import { COLORS } from "./theme";
 
-/** Our own mark: a small tile mosaic (a "tessera" is a mosaic tile). Decorative, so it is hidden from screen readers. */
+/** Our own mark: a small tile mosaic. Decorative, so it is hidden from screen readers. */
 export function BrandMark({ size = 22 }: { size?: number }) {
   return (
     <Box component="svg" viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" sx={{ flexShrink: 0 }}>
