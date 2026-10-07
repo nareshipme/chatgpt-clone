@@ -1,12 +1,14 @@
 import CheckIcon from "@mui/icons-material/Check";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { Box, Chip, CircularProgress, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import { Box, Button, Chip, CircularProgress, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import { useState } from "react";
-import type { MessagePart, ToolEvent } from "../api/types";
+import type { MessagePart, Provenance, ToolEvent } from "../api/types";
 import { copyText } from "../lib/clipboard";
 import { partsToPlainText } from "../lib/parts";
 import { toolLabel } from "../lib/tools";
 import { PartsView } from "./PartsView";
+import { WhyDrawer } from "./WhyDrawer";
 
 interface Props {
   role: "user" | "assistant" | "system";
@@ -19,18 +21,21 @@ interface Props {
   live?: boolean;
   /** Tools run for this reply so far (shown while it is being written). */
   tools?: ToolEvent[];
+  /** How the answer was made (saved with the reply): drives the "Why this answer" drawer. */
+  provenance?: Provenance[];
   /** Choice buttons in this message can be clicked (only the newest reply with nothing after it). */
   actionsActive?: boolean;
   answeredWith?: string;
   onChoose?: (value: string) => void;
 }
 
-export function MessageBubble({ role, parts, text = "", status, live, tools = [], actionsActive, answeredWith, onChoose }: Props) {
+export function MessageBubble({ role, parts, text = "", status, live, tools = [], provenance = [], actionsActive, answeredWith, onChoose }: Props) {
   const content: MessagePart[] = parts ?? (text ? [{ type: "text", text }] : []);
   const isUser = role === "user";
   const hasContent = content.some((p) => p.type !== "text" || p.text);
   const waiting = !isUser && !hasContent && tools.length === 0 && (live || status === "streaming");
   const [copied, setCopied] = useState(false);
+  const [whyOpen, setWhyOpen] = useState(false);
   const canCopy = !isUser && hasContent && !live;
 
   async function copy() {
@@ -85,6 +90,14 @@ export function MessageBubble({ role, parts, text = "", status, live, tools = []
             )}
             <PartsView parts={content} live={live} actionsActive={actionsActive} answeredWith={answeredWith} onChoose={onChoose} />
           </Typography>
+        )}
+        {!isUser && !live && provenance.length > 0 && (
+          <>
+            <Button size="small" startIcon={<InfoOutlinedIcon fontSize="small" />} onClick={() => setWhyOpen(true)} sx={{ mt: 0.5, textTransform: "none" }}>
+              Why this answer
+            </Button>
+            <WhyDrawer open={whyOpen} onClose={() => setWhyOpen(false)} provenance={provenance} />
+          </>
         )}
         {!isUser && status === "interrupted" && (
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>

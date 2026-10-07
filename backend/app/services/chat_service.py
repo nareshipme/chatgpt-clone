@@ -32,6 +32,7 @@ from app.domain.scenario import utc_today
 from app.domain.tools import ToolError, run_tool, tool_specs
 from app.llm.base import ChatMessage, LLMError, LLMProvider, PartEvent, TextDelta, ToolCall, Usage
 from app.models import Conversation, Message, Tenant, User
+from app.services import action_service
 from app.repositories import messages as repo
 from app.schemas.parts import validate_part
 from app.services import conversation_service
@@ -63,6 +64,7 @@ class Turn:
     history: list[ChatMessage]
     tenant_id: str = "northwind"
     system_prompt: str = ""
+    user_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -125,6 +127,7 @@ async def prepare_turn(
         return Turn(
             user_message.id, assistant.id, history,
             tenant_id=tenant.id if tenant else "",
+            user_id=user_id,
             system_prompt=copilot_prompt(
                 company, industry, utc_today(),
                 persona.focus if (persona := effective_persona(user.persona if user else None, tenant.id if tenant else "")) else "",
@@ -168,6 +171,15 @@ async def stream_turn(
             return
         for part in result.parts:
             await queue.put(PartEvent(part))
+        if result.proposed_action and turn.user_id:
+            # Store what would happen on the server and give the user a card that carries only its id.
+            async with factory() as session:
+                action = await action_service.create_proposal(
+                    session, tenant_id=turn.tenant_id, user_id=turn.user_id,
+                    message_id=turn.assistant_message_id, proposed=result.proposed_action,
+                )
+                await session.commit()
+            await queue.put(PartEvent({"type": "proposal", "action_id": str(action.id), "action_type": action.type, "summary": action.summary}))
         await queue.put(ToolStatus(call.id, call.name, "done", provenance=result.provenance))
         messages.append(ChatMessage("tool", json.dumps(result.data, default=str)[:MAX_TOOL_RESULT_CHARS], tool_call_id=call.id))
 

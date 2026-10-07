@@ -164,6 +164,9 @@ export function Sidebar({ activeId, onNavigate }: Props) {
             </Typography>
           )}
         </Box>
+        <Button size="small" onClick={() => { navigate("/audit"); onNavigate?.(); }}>
+          Audit
+        </Button>
         <Button size="small" onClick={() => setSettingsOpen(true)}>
           Settings
         </Button>

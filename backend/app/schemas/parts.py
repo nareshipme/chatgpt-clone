@@ -97,7 +97,17 @@ class ActionsPart(BaseModel):
         return v
 
 
-Part = Annotated[TextPart | TablePart | ChartPart | ImagePart | ActionsPart, Field(discriminator="type")]
+class ProposalPart(BaseModel):
+    """A card with Approve / Dismiss for something the copilot proposes. It holds only the id of the server-side
+    action; the current status and the details are fetched from the API, never trusted from this part."""
+
+    type: Literal["proposal"]
+    action_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    action_type: str = Field(min_length=1, max_length=30)
+    summary: str = Field(min_length=1, max_length=300)
+
+
+Part = Annotated[TextPart | TablePart | ChartPart | ImagePart | ActionsPart | ProposalPart, Field(discriminator="type")]
 _adapter: TypeAdapter = TypeAdapter(Part)
 
 

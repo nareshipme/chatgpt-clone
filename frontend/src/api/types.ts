@@ -92,7 +92,15 @@ export interface ActionsPart {
 }
 
 /** A message is a list of typed parts. Mirrors the server's validated schema. */
-export type MessagePart = TextPart | TablePart | ChartPart | ImagePart | ActionsPart;
+/** A card to approve or dismiss something the assistant proposes. Only the id is stored here; status comes from the API. */
+export interface ProposalPart {
+  type: "proposal";
+  action_id: string;
+  action_type: string;
+  summary: string;
+}
+
+export type MessagePart = TextPart | TablePart | ChartPart | ImagePart | ActionsPart | ProposalPart;
 
 /** Progress of a tool the assistant is running (from the `tool` stream event). */
 export interface ToolEvent {
