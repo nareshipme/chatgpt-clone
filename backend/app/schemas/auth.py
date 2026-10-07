@@ -36,6 +36,7 @@ class UserOut(BaseModel):
     display_name: str
     tenant_id: str
     role: str
+    persona: str | None = None  # the user's choice; the effective persona is what /personas marks as selected
     created_at: datetime
 
 

@@ -11,8 +11,8 @@ def test_upgrade_creates_users_table(migrated_db):
     insp = _inspect(migrated_db)
     assert "users" in insp.get_table_names()
     cols = {c["name"]: c for c in insp.get_columns("users")}
-    assert set(cols) == {"id", "email", "password_hash", "display_name", "tenant_id", "role", "created_at", "updated_at"}
-    assert not any(cols[c]["nullable"] for c in cols)
+    assert set(cols) == {"id", "email", "password_hash", "display_name", "tenant_id", "role", "persona", "created_at", "updated_at"}
+    assert not any(cols[c]["nullable"] for c in cols if c != "persona")  # persona is optional: NULL means the default
     uniques = [u["column_names"] for u in insp.get_unique_constraints("users")]
     assert ["email"] in uniques
 
