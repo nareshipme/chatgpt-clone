@@ -153,26 +153,30 @@ export function Sidebar({ activeId, onNavigate }: Props) {
       </Box>
 
       <Divider />
-      <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography noWrap title={user?.email}>
-            {user?.display_name}
-          </Typography>
-          {companyName && (
-            <Typography variant="caption" color="text.secondary" noWrap display="block">
-              {companyName}
+      <Box sx={{ p: 2, pb: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography noWrap title={user?.email}>
+              {user?.display_name}
             </Typography>
-          )}
+            {companyName && (
+              <Typography variant="caption" color="text.secondary" noWrap display="block">
+                {companyName}
+              </Typography>
+            )}
+          </Box>
+          <Button size="small" onClick={() => void logout()}>
+            Sign out
+          </Button>
         </Box>
-        <Button size="small" onClick={() => { navigate("/audit"); onNavigate?.(); }}>
-          Audit
-        </Button>
-        <Button size="small" onClick={() => setSettingsOpen(true)}>
-          Settings
-        </Button>
-        <Button size="small" onClick={() => void logout()}>
-          Sign out
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, mt: 0.5, ml: -1 }}>
+          <Button size="small" onClick={() => { navigate("/audit"); onNavigate?.(); }}>
+            Audit log
+          </Button>
+          <Button size="small" onClick={() => setSettingsOpen(true)}>
+            Settings
+          </Button>
+        </Box>
       </Box>
 
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
