@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../auth/AuthContext";
 import { PublicOnly, RequireAuth } from "../auth/RequireAuth";
 import ChatLayout from "../layout/ChatLayout";
+import AuditPage from "../pages/AuditPage";
 import { ConversationPage, EmptyChatPage } from "../pages/ConversationPages";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
@@ -56,6 +57,7 @@ export default function App() {
             >
               <Route path="/" element={<EmptyChatPage />} />
               <Route path="/c/:conversationId" element={<ConversationPage />} />
+              <Route path="/audit" element={<AuditPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

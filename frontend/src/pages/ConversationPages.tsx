@@ -104,6 +104,7 @@ function ChatPane({ conversationId }: { conversationId: string }) {
                 role={m.role}
                 parts={m.parts}
                 status={m.status}
+                provenance={m.meta?.provenance}
                 // Choice buttons work only on the newest finished reply with nothing after it; older menus are history.
                 actionsActive={m.role === "assistant" && isLast && !chat.streaming && m.status === "complete"}
                 answeredWith={next?.role === "user" ? textOf(next.parts) : isLast ? chat.live?.userText : undefined}

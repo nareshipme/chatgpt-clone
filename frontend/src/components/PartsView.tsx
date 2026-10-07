@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import type { MessagePart } from "../api/types";
 import { ActionsView } from "./parts/ActionsView";
 import { ImageView } from "./parts/ImageView";
+import { ProposalView } from "./parts/ProposalView";
 import { TableView } from "./parts/TableView";
 
 // The heavy renderers are loaded on demand: Markdown (react-markdown, highlight.js) and charts (Recharts)
@@ -50,6 +51,8 @@ export function PartsView({ parts, live, actionsActive = false, answeredWith, on
             );
           case "image":
             return <ImageView key={i} part={part} />;
+          case "proposal":
+            return <ProposalView key={i} part={part} />;
           case "actions":
             return <ActionsView key={i} part={part} active={actionsActive} answeredWith={answeredWith} onChoose={(v) => onChoose?.(v)} />;
         }

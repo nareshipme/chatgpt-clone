@@ -20,6 +20,8 @@ export function partsToPlainText(parts: MessagePart[]): string {
           return `[image: ${p.alt}]`;
         case "actions":
           return [p.prompt, p.options.map((o) => o.label).join(" | ")].filter(Boolean).join("\n");
+        case "proposal":
+          return `[proposed action: ${p.summary}]`;
       }
     })
     .filter((s) => s !== "")
